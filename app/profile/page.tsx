@@ -156,9 +156,9 @@ export default function ProfilePage() {
   };
 
   const refreshLineFriendship = () => {
-    // การ login ใหม่จะตรวจ friendship status กับ LINE และอัปเดต profiles.line_friend
-    window.location.href = "/login?line_friend_check=1";
-  };
+  window.location.href =
+    "https://lin.ee/xfTT3EU";
+};
 
   const handleVerificationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
