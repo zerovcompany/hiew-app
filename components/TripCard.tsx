@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { CarrierTrip } from "@/lib/types";
 
 
@@ -17,8 +18,13 @@ export default function TripCard({ trip }: { trip: CarrierTrip }) {
   return (
     <Link
       href={`/trips/${trip.id}`}
-      className="focus-ring ticket-card group block p-4 pb-5 transition-shadow hover:shadow-card"
+      className="focus-ring ticket-card group block overflow-hidden p-4 pb-5 transition-shadow hover:shadow-card"
     >
+      {trip.cover_image_url && (
+        <div className="relative -mx-4 -mt-4 mb-3 h-32 w-[calc(100%+2rem)] overflow-hidden">
+          <Image src={trip.cover_image_url} alt={trip.shop_name_text} fill className="object-cover" />
+        </div>
+      )}
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-medium text-mudmee">{trip.shop_name_text}</p>

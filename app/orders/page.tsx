@@ -8,11 +8,13 @@ import type { CarrierTrip, Order, OrderStatus, Profile } from "@/lib/types";
 import StatusBadge from "@/components/StatusBadge";
 import EmptyState from "@/components/EmptyState";
 import { SkeletonList } from "@/components/Skeleton";
-import { IconPlus } from "@/components/Icons";
+import { IconPlus, IconPaperclip } from "@/components/Icons";
 
 type OrderRow = Order & {
   carrier_trips: { shop_name_text: string; delivery_date: string } | null;
 };
+
+type SellOrderRow = Order & { profiles?: { display_name: string } };
 
 const nextStatus: Record<string, OrderStatus | null> = {
   pending: "confirmed",
@@ -51,7 +53,7 @@ function OrdersHubInner() {
 
   // แท็บ "ที่ฉันหิ้ว" — เที่ยวหิ้วที่เปิดไว้ พร้อมออเดอร์ที่ลูกค้าสั่งเข้ามา
   const [trips, setTrips] = useState<CarrierTrip[]>([]);
-  const [ordersByTrip, setOrdersByTrip] = useState<Record<string, Order[]>>({});
+  const [ordersByTrip, setOrdersByTrip] = useState<Record<string, SellOrderRow[]>>({});
   const [sellLoading, setSellLoading] = useState(true);
 
   useEffect(() => {
@@ -84,8 +86,12 @@ function OrdersHubInner() {
       setTrips(tripList);
       await Promise.all(
         tripList.map(async (t) => {
-          const { data } = await supabase.from("orders").select("*").eq("trip_id", t.id).order("created_at");
-          setOrdersByTrip((prev) => ({ ...prev, [t.id]: (data as Order[]) ?? [] }));
+          const { data } = await supabase
+            .from("orders")
+            .select("*, profiles(display_name)")
+            .eq("trip_id", t.id)
+            .order("created_at");
+          setOrdersByTrip((prev) => ({ ...prev, [t.id]: (data as unknown as SellOrderRow[]) ?? [] }));
         })
       );
       setSellLoading(false);
@@ -102,8 +108,12 @@ function OrdersHubInner() {
     const next = nextStatus[order.status];
     if (!next) return;
     await supabase.from("orders").update({ status: next }).eq("id", order.id);
-    const { data } = await supabase.from("orders").select("*").eq("trip_id", order.trip_id).order("created_at");
-    setOrdersByTrip((prev) => ({ ...prev, [order.trip_id]: (data as Order[]) ?? [] }));
+    const { data } = await supabase
+      .from("orders")
+      .select("*, profiles(display_name)")
+      .eq("trip_id", order.trip_id)
+      .order("created_at");
+    setOrdersByTrip((prev) => ({ ...prev, [order.trip_id]: (data as unknown as SellOrderRow[]) ?? [] }));
   };
 
   const paymentLabel: Record<string, string> = {
@@ -149,7 +159,7 @@ function OrdersHubInner() {
         ) : (
           <div className="mt-4 space-y-3">
             {buyOrders.map((o) => (
-              <Link key={o.id} href={`/trips/${o.trip_id}`} className="focus-ring ticket-card block p-4">
+              <Link key={o.id} href={`/orders/${o.id}`} className="focus-ring ticket-card block p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs text-mudmee">{o.carrier_trips?.shop_name_text}</p>
@@ -189,12 +199,12 @@ function OrdersHubInner() {
           {trips.map((trip) => (
             <div key={trip.id} className="ticket-card p-4">
               <div className="flex items-start justify-between">
-                <div>
+                <Link href={`/trips/${trip.id}`} className="focus-ring hover:text-krachiao">
                   <p className="text-xs text-mudmee">{trip.shop_name_text}</p>
                   <p className="font-medium text-ink">
                     ส่ง {new Date(trip.delivery_date).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}
                   </p>
-                </div>
+                </Link>
                 <StatusBadge status={trip.status} />
               </div>
 
@@ -203,18 +213,34 @@ function OrdersHubInner() {
                   <p className="text-sm text-ink/50">ยังไม่มีออเดอร์เข้ามา</p>
                 ) : (
                   ordersByTrip[trip.id].map((o) => (
-                    <div key={o.id} className="rounded-xl bg-cream p-2.5 text-sm">
+                    <Link
+                      key={o.id}
+                      href={`/orders/${o.id}`}
+                      className="focus-ring block rounded-xl bg-cream p-2.5 text-sm hover:bg-cream/70"
+                    >
                       <div className="flex items-center justify-between gap-2">
                         <div>
+                          {o.profiles?.display_name && (
+                            <p className="text-xs font-medium text-krachiao">{o.profiles.display_name}</p>
+                          )}
                           <p className="font-medium text-ink">{o.item_description} × {o.quantity}</p>
                           {o.buyer_note && <p className="text-xs text-ink/50">{o.buyer_note}</p>}
-                          <p className="mt-0.5 text-xs text-ink/45">
+                          <p className="mt-0.5 flex items-center gap-1 text-xs text-ink/45">
                             {o.total_price} บาท · {paymentLabel[o.payment_method] ?? "จ่ายตอนรับของ"}
+                            {o.payment_slip_url && (
+                              <span className="flex items-center gap-0.5 text-krachiao">
+                                <IconPaperclip className="h-3 w-3" /> มีสลิป
+                              </span>
+                            )}
                           </p>
                         </div>
                         {nextStatus[o.status] ? (
                           <button
-                            onClick={() => advanceOrder(o)}
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              advanceOrder(o);
+                            }}
                             className="focus-ring shrink-0 rounded-full bg-mudmee px-3 py-1.5 text-xs font-medium text-white hover:bg-mudmee-dark"
                           >
                             {actionLabel[o.status]}
@@ -223,7 +249,7 @@ function OrdersHubInner() {
                           <StatusBadge status={o.status} />
                         )}
                       </div>
-                    </div>
+                    </Link>
                   ))
                 )}
               </div>

@@ -53,6 +53,7 @@ export type CarrierTrip = {
   fee_type: "per_order" | "per_item" | "flat";
   max_orders: number | null;
   status: TripStatus;
+  cover_image_url: string | null;
   profiles?: Profile;
   shops?: Shop;
 };
@@ -86,6 +87,8 @@ export type Order = {
   status: OrderStatus;
   payment_method: PaymentMethod;
   payment_status: PaymentStatus;
+  payment_slip_url: string | null;
   buyer_note: string | null;
   created_at: string;
+  profiles?: Pick<Profile, "display_name" | "phone" | "avatar_url">;
 };

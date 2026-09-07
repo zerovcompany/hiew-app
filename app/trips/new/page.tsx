@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import type { Profile, Shop } from "@/lib/types";
-import { IconShieldCheck, IconSearch } from "@/components/Icons";
+import { IconShieldCheck, IconSearch, IconCamera } from "@/components/Icons";
 
 type MenuRow = { name: string; price: string };
 
@@ -28,8 +28,17 @@ export default function NewTripPage() {
   const [maxOrders, setMaxOrders] = useState("");
   const [menuRows, setMenuRows] = useState<MenuRow[]>([{ name: "", price: "" }]);
 
+  // รูปปกเที่ยวหิ้ว (ไม่บังคับ) — เหมือนรูปหน้าปกของร้านที่ไปหิ้วรอบนี้ ช่วยให้คนซื้อจำร้านได้ง่ายขึ้น
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const handleCoverChange = (file: File | null) => {
+    setCoverFile(file);
+    setCoverPreview(file ? URL.createObjectURL(file) : null);
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -146,6 +155,21 @@ export default function NewTripPage() {
       );
     }
 
+    // อัปโหลดรูปปก (ถ้ามี) — ทำหลังสร้างเที่ยวสำเร็จแล้ว เพราะต้องใช้ trip.id เป็นชื่อโฟลเดอร์
+    if (coverFile) {
+      const ext = coverFile.name.split(".").pop() ?? "jpg";
+      const path = `${carrierId}/${trip.id}-${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from("trip-images").upload(path, coverFile);
+      if (!uploadErr) {
+        const { data: publicUrlData } = supabase.storage.from("trip-images").getPublicUrl(path);
+        await supabase
+          .from("carrier_trips")
+          .update({ cover_image_url: publicUrlData.publicUrl })
+          .eq("id", trip.id);
+      }
+      // ถ้าอัปโหลดรูปไม่สำเร็จ ไม่ต้องบล็อกทั้งฟอร์ม เที่ยวหิ้วยังสร้างสำเร็จแล้ว แค่ไม่มีรูปปก
+    }
+
     setSubmitting(false);
     router.push(`/trips/${trip.id}`);
   };
@@ -218,6 +242,26 @@ export default function NewTripPage() {
                 ))}
               </div>
             )}
+          </div>
+          <div>
+            <label className="field-label">รูปปกร้าน (ไม่บังคับ)</label>
+            <label className="surface-card flex cursor-pointer items-center gap-3 p-3 text-sm text-ink/60 hover:bg-ink/5">
+              {coverPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={coverPreview} alt="ตัวอย่างรูปปก" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+              ) : (
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-ink/5 text-ink/30">
+                  <IconCamera className="h-6 w-6" />
+                </span>
+              )}
+              <span>{coverFile ? coverFile.name : "แตะเพื่อเลือกรูปปกร้านที่จะไปหิ้ว"}</span>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleCoverChange(e.target.files?.[0] ?? null)}
+              />
+            </label>
           </div>
           <div>
             <label className="field-label">รายละเอียดเพิ่มเติม</label>

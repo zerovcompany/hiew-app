@@ -2,10 +2,21 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase/client";
-import type { CarrierTrip, PaymentMethod, TripMenuItem } from "@/lib/types";
+import type { CarrierTrip, Order, PaymentMethod, TripMenuItem } from "@/lib/types";
 import type { User } from "@supabase/supabase-js";
 import { SkeletonCard } from "@/components/Skeleton";
+import StatusBadge from "@/components/StatusBadge";
+import { IconTrash, IconPaperclip } from "@/components/Icons";
+
+type SellOrderRow = Order & { profiles?: { display_name: string; phone: string | null } };
+
+const paymentLabelMap: Record<string, string> = {
+  pay_now: "จ่ายผ่านพร้อมเพย์แล้ว",
+  pay_on_delivery: "จ่ายตอนรับของ",
+};
 
 export default function TripDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -25,19 +36,35 @@ export default function TripDetailPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("pay_on_delivery");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
+  // แนบสลิปทันทีหลังสั่งซื้อ (กรณีเลือก "จ่ายเลย") — ไม่งั้นคนหิ้วเช็คเงินไม่ได้
+  const [slipFile, setSlipFile] = useState<File | null>(null);
+  const [slipUploading, setSlipUploading] = useState(false);
+  const [slipUploaded, setSlipUploaded] = useState(false);
+  const [slipError, setSlipError] = useState<string | null>(null);
 
+  // ฝั่งคนหิ้ว (เจ้าของเที่ยว) — ดูว่าใครสั่งเข้ามาบ้าง และลบเที่ยวนี้ได้
+  const [sellOrders, setSellOrders] = useState<SellOrderRow[]>([]);
+  const [sellOrdersLoading, setSellOrdersLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  useEffect(() => {
     const load = async () => {
       setLoading(true);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const currentUser = sessionData.session?.user ?? null;
+      setUser(currentUser);
+
       const { data: tripData } = await supabase
         .from("carrier_trips")
         .select("*, profiles(display_name, rating_avg, rating_count, avatar_url, promptpay_id), shops(name)")
         .eq("id", id)
         .maybeSingle();
-      setTrip(tripData as unknown as CarrierTrip);
+      const loadedTrip = tripData as unknown as CarrierTrip;
+      setTrip(loadedTrip);
 
       const { data: items } = await supabase
         .from("trip_menu_items")
@@ -45,9 +72,69 @@ export default function TripDetailPage() {
         .eq("trip_id", id);
       setMenuItems((items as TripMenuItem[]) ?? []);
       setLoading(false);
+
+      // ถ้าเป็นเจ้าของเที่ยวหิ้วนี้ ให้โหลดรายการออเดอร์ที่มีคนสั่งเข้ามาด้วย
+      if (loadedTrip && currentUser && loadedTrip.carrier_id === currentUser.id) {
+        setSellOrdersLoading(true);
+        const { data: orders } = await supabase
+          .from("orders")
+          .select("*, profiles(display_name, phone)")
+          .eq("trip_id", id)
+          .order("created_at", { ascending: false });
+        setSellOrders((orders as unknown as SellOrderRow[]) ?? []);
+        setSellOrdersLoading(false);
+      }
     };
     load();
   }, [id]);
+
+  const isOwner = !!(user && trip && trip.carrier_id === user.id);
+
+  const handleDeleteTrip = async () => {
+    if (!trip) return;
+    const hasOrders = sellOrders.length > 0;
+    const confirmMsg = hasOrders
+      ? `เที่ยวนี้มีออเดอร์เข้ามาแล้ว ${sellOrders.length} รายการ ถ้าลบ ออเดอร์ทั้งหมดจะถูกลบไปด้วย ต้องการลบจริงหรือไม่?`
+      : "ต้องการลบเที่ยวหิ้วนี้ใช่หรือไม่? ลบแล้วกู้คืนไม่ได้";
+    if (!window.confirm(confirmMsg)) return;
+
+    setDeleting(true);
+    setDeleteError(null);
+    const { error } = await supabase.from("carrier_trips").delete().eq("id", trip.id);
+    setDeleting(false);
+    if (error) {
+      setDeleteError("ลบเที่ยวหิ้วไม่สำเร็จ ลองใหม่อีกครั้ง");
+      console.error(error);
+      return;
+    }
+    router.push("/orders?tab=selling");
+  };
+
+  const handleUploadSlip = async () => {
+    if (!slipFile || !createdOrderId) return;
+    setSlipUploading(true);
+    setSlipError(null);
+    const ext = slipFile.name.split(".").pop() ?? "jpg";
+    const path = `${createdOrderId}/slip-${Date.now()}.${ext}`;
+    const { error: uploadErr } = await supabase.storage.from("payment-slips").upload(path, slipFile);
+    if (uploadErr) {
+      setSlipError("แนบสลิปไม่สำเร็จ ลองใหม่อีกครั้ง");
+      setSlipUploading(false);
+      console.error(uploadErr);
+      return;
+    }
+    const { error: updateErr } = await supabase
+      .from("orders")
+      .update({ payment_slip_url: path })
+      .eq("id", createdOrderId);
+    setSlipUploading(false);
+    if (updateErr) {
+      setSlipError("บันทึกสลิปไม่สำเร็จ ลองใหม่อีกครั้ง");
+      console.error(updateErr);
+      return;
+    }
+    setSlipUploaded(true);
+  };
 
   const handleSelectMenu = (menuId: string) => {
     setSelectedMenuId(menuId);
@@ -100,23 +187,28 @@ export default function TripDetailPage() {
     }
 
     setSubmitting(true);
-    const { error } = await supabase.from("orders").insert({
-      trip_id: trip.id,
-      buyer_id: user.id,
-      menu_item_id: selectedMenuId === "custom" ? null : selectedMenuId,
-      item_description: itemDescription.trim(),
-      quantity,
-      item_price: itemPrice ? Number(itemPrice) : null,
-      service_fee_snapshot: trip.service_fee,
-      buyer_note: buyerNote.trim() || null,
-      payment_method: paymentMethod,
-    });
+    const { data: newOrder, error } = await supabase
+      .from("orders")
+      .insert({
+        trip_id: trip.id,
+        buyer_id: user.id,
+        menu_item_id: selectedMenuId === "custom" ? null : selectedMenuId,
+        item_description: itemDescription.trim(),
+        quantity,
+        item_price: itemPrice ? Number(itemPrice) : null,
+        service_fee_snapshot: trip.service_fee,
+        buyer_note: buyerNote.trim() || null,
+        payment_method: paymentMethod,
+      })
+      .select()
+      .single();
     setSubmitting(false);
 
-    if (error) {
+    if (error || !newOrder) {
       setFormError("สั่งซื้อไม่สำเร็จ ลองใหม่อีกครั้ง");
       console.error(error);
     } else {
+      setCreatedOrderId(newOrder.id);
       setSubmitted(true);
     }
   };
@@ -143,11 +235,32 @@ export default function TripDetailPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-16 pt-10">
-      <p className="text-xs font-medium text-mudmee">{trip.shop_name_text}</p>
-      <h1 className="mt-1 font-display text-2xl text-ink">
-        ส่ง {new Date(trip.delivery_date).toLocaleDateString("th-TH", { day: "numeric", month: "long" })}
-        {" "}เวลา {trip.delivery_time_start.slice(0, 5)}-{trip.delivery_time_end.slice(0, 5)} น.
-      </h1>
+      {trip.cover_image_url && (
+        <div className="relative -mt-2 mb-4 h-44 w-full overflow-hidden rounded-2xl">
+          <Image src={trip.cover_image_url} alt={trip.shop_name_text} fill className="object-cover" />
+        </div>
+      )}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-medium text-mudmee">{trip.shop_name_text}</p>
+          <h1 className="mt-1 font-display text-2xl text-ink">
+            ส่ง {new Date(trip.delivery_date).toLocaleDateString("th-TH", { day: "numeric", month: "long" })}
+            {" "}เวลา {trip.delivery_time_start.slice(0, 5)}-{trip.delivery_time_end.slice(0, 5)} น.
+          </h1>
+        </div>
+        {isOwner && (
+          <button
+            onClick={handleDeleteTrip}
+            disabled={deleting}
+            aria-label="ลบเที่ยวหิ้วนี้"
+            className="focus-ring flex shrink-0 items-center gap-1.5 rounded-full border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+          >
+            <IconTrash className="h-4 w-4" />
+            {deleting ? "กำลังลบ..." : "ลบเที่ยวนี้"}
+          </button>
+        )}
+      </div>
+      {deleteError && <p className="mt-2 text-sm text-red-600">{deleteError}</p>}
 
       <div className="mt-4 ticket-card p-4">
         <dl className="grid grid-cols-2 gap-y-2.5 text-sm">
@@ -175,15 +288,95 @@ export default function TripDetailPage() {
         )}
       </div>
 
+      {isOwner ? (
+        <section className="mt-8">
+          <h2 className="font-display text-lg text-ink">
+            ออเดอร์ที่สั่งเข้ามา {sellOrders.length > 0 && `(${sellOrders.length})`}
+          </h2>
+
+          {sellOrdersLoading ? (
+            <div className="mt-3"><SkeletonCard /></div>
+          ) : sellOrders.length === 0 ? (
+            <p className="mt-3 rounded-xl bg-ink/5 p-4 text-sm text-ink/60">ยังไม่มีใครสั่งเข้ามาในเที่ยวนี้</p>
+          ) : (
+            <div className="mt-3 space-y-3">
+              {sellOrders.map((o) => (
+                <Link
+                  key={o.id}
+                  href={`/orders/${o.id}`}
+                  className="focus-ring ticket-card block p-4 hover:shadow-card"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-ink">{o.profiles?.display_name ?? "ผู้ซื้อ"}</p>
+                      <p className="mt-0.5 text-sm text-ink/70">{o.item_description} × {o.quantity}</p>
+                      {o.buyer_note && <p className="mt-0.5 text-xs text-ink/45">{o.buyer_note}</p>}
+                    </div>
+                    <StatusBadge status={o.status} />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between border-t border-dashed border-ink/15 pt-2 text-sm">
+                    <span className="flex items-center gap-1 text-ink/50">
+                      {paymentLabelMap[o.payment_method] ?? "จ่ายตอนรับของ"}
+                      {o.payment_slip_url && (
+                        <span className="flex items-center gap-0.5 text-krachiao">
+                          <IconPaperclip className="h-3.5 w-3.5" /> มีสลิป
+                        </span>
+                      )}
+                    </span>
+                    <span className="font-medium text-ink/70">รวม {o.total_price} บาท</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : (
       <section className="mt-8">
         <h2 className="font-display text-lg text-ink">สั่งซื้อ</h2>
 
         {isClosed ? (
           <p className="mt-3 rounded-xl bg-ink/5 p-4 text-sm text-ink/60">เที่ยวนี้ปิดรับออเดอร์แล้ว</p>
         ) : submitted ? (
-          <div className="mt-3 ticket-card p-4 text-sm text-ink">
-            สั่งซื้อเรียบร้อย รอคนหิ้วยืนยันออเดอร์ — ดูสถานะได้ที่{" "}
-            <a href="/orders" className="text-krachiao underline">ออเดอร์ของฉัน</a>
+          <div className="mt-3 ticket-card space-y-3 p-4 text-sm text-ink">
+            <p>
+              สั่งซื้อเรียบร้อย รอคนหิ้วยืนยันออเดอร์ — ดูรายละเอียดและสถานะได้ที่{" "}
+              {createdOrderId ? (
+                <Link href={`/orders/${createdOrderId}`} className="text-krachiao underline">ออเดอร์นี้</Link>
+              ) : (
+                <a href="/orders" className="text-krachiao underline">ออเดอร์ของฉัน</a>
+              )}
+            </p>
+
+            {paymentMethod === "pay_now" && (
+              <div className="border-t border-dashed border-ink/15 pt-3">
+                {slipUploaded ? (
+                  <p className="text-emerald-700">✓ แนบสลิปแล้ว คนหิ้วเช็คได้เลย</p>
+                ) : (
+                  <>
+                    <p className="text-xs text-ink/50">แนบสลิปโอนเงินไว้ให้คนหิ้วเช็ค (ถ้ายังไม่ได้แนบ)</p>
+                    <label className="surface-card mt-2 flex cursor-pointer items-center gap-2 p-2.5 text-xs text-ink/60 hover:bg-ink/5">
+                      <IconPaperclip className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{slipFile ? slipFile.name : "เลือกรูปสลิปโอนเงิน"}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => setSlipFile(e.target.files?.[0] ?? null)}
+                      />
+                    </label>
+                    {slipError && <p className="mt-1.5 text-xs text-red-600">{slipError}</p>}
+                    <button
+                      type="button"
+                      onClick={handleUploadSlip}
+                      disabled={!slipFile || slipUploading}
+                      className="btn-secondary mt-2 w-full text-xs disabled:opacity-60"
+                    >
+                      {slipUploading ? "กำลังแนบสลิป..." : "แนบสลิป"}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="surface-card mt-3 space-y-4 p-4">
@@ -342,6 +535,7 @@ export default function TripDetailPage() {
           </form>
         )}
       </section>
+      )}
     </main>
   );
 }
