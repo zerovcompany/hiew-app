@@ -28,6 +28,7 @@ function LoginContent() {
       redirect_uri: `${window.location.origin}/api/auth/line/callback`,
       state,
       scope: "openid profile",
+      bot_prompt: "normal",
     });
 
     window.location.href = `https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`;

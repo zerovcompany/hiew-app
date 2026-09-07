@@ -1,6 +1,7 @@
 export type Profile = {
   id: string;
   line_user_id: string | null;
+  line_friend: boolean;
   display_name: string;
   avatar_url: string | null;
   phone: string | null;
@@ -11,6 +12,12 @@ export type Profile = {
   rating_avg: number;
   rating_count: number;
   is_admin?: boolean;
+};
+
+export type BuyerAddress = {
+  id: string; profile_id: string; label: string; recipient_name: string; phone: string; address_text: string;
+  province: string | null; district: string | null; subdistrict: string | null; postal_code: string | null;
+  latitude: number | null; longitude: number | null; is_default: boolean; created_at: string; updated_at: string;
 };
 
 export type VerificationStatus = "pending" | "approved" | "rejected";
@@ -91,4 +98,8 @@ export type Order = {
   buyer_note: string | null;
   created_at: string;
   profiles?: Pick<Profile, "display_name" | "phone" | "avatar_url">;
+  delivery_name: string | null; delivery_phone: string | null; delivery_address: string | null;
+  delivery_province: string | null; delivery_district: string | null; delivery_subdistrict: string | null; delivery_postal_code: string | null;
+  delivery_latitude: number | null; delivery_longitude: number | null;
+  cancelled_by: string | null; cancel_reason: string | null; cancelled_at: string | null;
 };

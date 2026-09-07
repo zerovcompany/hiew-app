@@ -49,6 +49,8 @@ export default function OrderDetailPage() {
   const [slipError, setSlipError] = useState<string | null>(null);
 
   const [advancing, setAdvancing] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const loadSlipSignedUrl = async (path: string) => {
     const { data } = await supabase.storage.from("payment-slips").createSignedUrl(path, 3600);
@@ -148,7 +150,27 @@ export default function OrderDetailPage() {
     setAdvancing(true);
     const { error } = await supabase.from("orders").update({ status: next }).eq("id", order.id);
     setAdvancing(false);
-    if (!error) setOrder({ ...order, status: next });
+    if (!error) {
+      setOrder({ ...order, status: next });
+      const event = next === "confirmed" ? "confirmed" : next === "delivered" ? "delivered" : null;
+      if (event) { const session = await supabase.auth.getSession(); fetch("/api/notifications/order", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.data.session?.access_token ?? ""}` }, body: JSON.stringify({ order_id: order.id, event }) }).catch(() => undefined); }
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!order || !trip || !isCarrier) return;
+    let reason = "";
+    if (order.status !== "pending") {
+      reason = window.prompt("กรุณาระบุเหตุผลในการยกเลิกออเดอร์")?.trim() ?? "";
+      if (!reason) { setCancelError("ต้องระบุเหตุผลก่อนยกเลิกออเดอร์"); return; }
+    } else if (!window.confirm("ยืนยันยกเลิกออเดอร์นี้หรือไม่?")) return;
+    setCancelling(true); setCancelError(null);
+    const session = await supabase.auth.getSession();
+    const response = await fetch(`/api/orders/${order.id}/cancel`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.data.session?.access_token ?? ""}` }, body: JSON.stringify({ reason }) });
+    const result = await response.json().catch(() => ({}));
+    setCancelling(false);
+    if (!response.ok) { setCancelError(result.error ?? "ยกเลิกออเดอร์ไม่สำเร็จ"); return; }
+    setOrder({ ...order, status: "cancelled", cancel_reason: reason || null, cancelled_by: user?.id ?? null, cancelled_at: new Date().toISOString() });
   };
 
   if (loading) {
@@ -262,6 +284,21 @@ export default function OrderDetailPage() {
         )}
       </div>
 
+      {isCarrier && order.delivery_address && (
+        <div className="mt-4 ticket-card p-4">
+          <h2 className="font-display text-base text-ink">ที่อยู่จัดส่งของผู้ซื้อ</h2>
+          <p className="mt-2 text-sm font-medium">{order.delivery_name} · {order.delivery_phone}</p>
+          <p className="mt-1 text-sm text-ink/70">{order.delivery_address}</p>
+          {order.delivery_latitude != null && order.delivery_longitude != null && (
+            <a className="mt-3 inline-flex rounded-full bg-krachiao px-4 py-2 text-xs font-medium text-white" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/dir/?api=1&destination=${order.delivery_latitude},${order.delivery_longitude}`}>นำทางไปยังจุดปักหมุด</a>
+          )}
+        </div>
+      )}
+
+      {isCancelled && order.cancel_reason && (
+        <div className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-700">เหตุผลที่ยกเลิก: {order.cancel_reason}</div>
+      )}
+
       {/* สรุปยอด */}
       <div className="mt-4 ticket-card space-y-1.5 p-4 text-sm">
         <div className="flex items-center justify-between text-ink/60">
@@ -324,14 +361,17 @@ export default function OrderDetailPage() {
 
       {/* ปุ่มจัดการสถานะ (เฉพาะคนหิ้ว) */}
       {isCarrier && nextStatus[order.status] && (
-        <button
-          type="button"
-          onClick={handleAdvance}
-          disabled={advancing}
-          className="btn-primary mt-5 w-full disabled:opacity-60"
-        >
+        <button type="button" onClick={handleAdvance} disabled={advancing} className="btn-primary mt-5 w-full disabled:opacity-60">
           {advancing ? "กำลังอัปเดต..." : actionLabel[order.status]}
         </button>
+      )}
+      {isCarrier && !isCancelled && order.status !== "delivered" && (
+        <div className="mt-3">
+          <button type="button" onClick={handleCancel} disabled={cancelling} className="w-full rounded-full border border-red-200 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60">
+            {cancelling ? "กำลังยกเลิก..." : "ยกเลิกออเดอร์"}
+          </button>
+          {cancelError && <p className="mt-2 text-center text-xs text-red-600">{cancelError}</p>}
+        </div>
       )}
     </main>
   );

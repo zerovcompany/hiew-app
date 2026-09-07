@@ -78,3 +78,22 @@ lib/supabase/
 - **แจ้งเตือนผ่าน LINE**: ใช้ LINE Messaging API ส่งข้อความหาคนซื้อ/คนหิ้วเมื่อออเดอร์เปลี่ยนสถานะ
 - **หน้ารีวิว**: เพิ่มฟอร์มให้รีวิวกันได้หลังออเดอร์ status = delivered
 - **verify id_token signature จริงจัง**: ตอนนี้ decode เฉยๆ เพื่อความเร็วตอน MVP ก่อน production ควร verify กับ LINE JWKS
+
+## อัปเดต Requirement ล่าสุด
+
+เพิ่มแล้วในชุดนี้:
+- เบอร์โทรผู้สั่งซื้อ + บันทึกในโปรไฟล์
+- ที่อยู่ผู้สั่งซื้อหลายรายการ พร้อมตั้งค่าเริ่มต้น
+- ปักหมุดตำแหน่งจัดส่งบนแผนที่ OpenStreetMap/Leaflet และบันทึก latitude/longitude
+- snapshot ที่อยู่และพิกัดลงในออเดอร์ เพื่อไม่ให้ที่อยู่เก่าเปลี่ยนตามโปรไฟล์ภายหลัง
+- คนหิ้วยกเลิกออเดอร์ได้: สถานะ `pending` ไม่ต้องใส่เหตุผล; ถ้ารับออเดอร์แล้วต้องระบุเหตุผล
+- Admin จัดการรูปภาพ/ข้อมูลร้านผ่าน `/admin/shops`
+- เครดิต `Developed by SupremeP` ควรใส่ใน Footer ของระบบ
+- LINE แจ้งเฉพาะ event สำคัญ: ออเดอร์ใหม่, รับออเดอร์, ยกเลิก, ส่งสำเร็จ และมีระบบเปิด/ปิดแจ้งเตือนต่อผู้ใช้
+
+### Supabase
+รัน `new_requirements_migration.sql` หลัง migration เดิมทั้งหมด
+
+### LINE Messaging API
+เพิ่ม `LINE_MESSAGING_CHANNEL_ACCESS_TOKEN` ใน `.env.local` จาก Messaging API channel ของ LINE Official Account
+ถ้าไม่ตั้งค่า ระบบยังใช้งานออเดอร์ได้ตามปกติ แต่จะข้ามการส่ง LINE notification

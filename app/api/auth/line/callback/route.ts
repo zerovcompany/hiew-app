@@ -54,6 +54,19 @@ export async function GET(req: NextRequest) {
     const name: string = claims.name ?? "ผู้ใช้ LINE";
     const picture: string | undefined = claims.picture;
 
+    // ตรวจสอบว่า user ได้เพิ่ม LINE Official Account ที่ผูกกับ LINE Login channel แล้วหรือยัง
+    // LINE ระบุว่า friendship/v1/status ใช้ access token ที่มี profile scope ได้
+    let lineFriend = false;
+    if (tokenData.access_token) {
+      const friendshipRes = await fetch("https://api.line.me/friendship/v1/status", {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      });
+      if (friendshipRes.ok) {
+        const friendship = await friendshipRes.json();
+        lineFriend = friendship.friendFlag === true;
+      }
+    }
+
     // อีเมลสมมติผูกกับ LINE user id เพราะ LINE ไม่การันตีว่าจะได้อีเมลจริงเสมอไป
     const syntheticEmail = `line-${lineUserId}@chaiyaphum-hiew.local`;
 
@@ -97,10 +110,20 @@ export async function GET(req: NextRequest) {
           line_user_id: lineUserId,
           display_name: name,
           avatar_url: picture ?? null,
+          line_friend: lineFriend,
         });
         // ถ้า insert ชนกับแถวที่เพิ่งถูกสร้างพร้อมกัน (race) หรือ trigger สร้างไปแล้วพอดี ไม่ต้อง throw
         if (insertErr && insertErr.code !== "23505") throw insertErr;
       }
+    }
+
+    // อัปเดตสถานะ LINE OA ทุกครั้งที่ login สำเร็จ เพื่อให้ปุ่มแจ้งเตือนสะท้อนสถานะล่าสุด
+    if (uid) {
+      const { error: profileUpdateError } = await supabaseAdmin
+        .from("profiles")
+        .update({ line_user_id: lineUserId, line_friend: lineFriend })
+        .eq("id", uid);
+      if (profileUpdateError) throw profileUpdateError;
     }
 
     const res = NextResponse.redirect(linkData.properties.action_link);

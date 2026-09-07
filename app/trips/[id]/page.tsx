@@ -10,6 +10,7 @@ import type { User } from "@supabase/supabase-js";
 import { SkeletonCard } from "@/components/Skeleton";
 import StatusBadge from "@/components/StatusBadge";
 import { IconTrash, IconPaperclip } from "@/components/Icons";
+import type { BuyerAddress } from "@/lib/types";
 
 type SellOrderRow = Order & { profiles?: { display_name: string; phone: string | null } };
 
@@ -38,6 +39,8 @@ export default function TripDetailPage() {
   const [submitted, setSubmitted] = useState(false);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [addresses, setAddresses] = useState<BuyerAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState("");
 
   // แนบสลิปทันทีหลังสั่งซื้อ (กรณีเลือก "จ่ายเลย") — ไม่งั้นคนหิ้วเช็คเงินไม่ได้
   const [slipFile, setSlipFile] = useState<File | null>(null);
@@ -57,6 +60,10 @@ export default function TripDetailPage() {
       const { data: sessionData } = await supabase.auth.getSession();
       const currentUser = sessionData.session?.user ?? null;
       setUser(currentUser);
+      if (currentUser) {
+        const { data: addressRows } = await supabase.from("buyer_addresses").select("*").eq("profile_id", currentUser.id).order("is_default", { ascending: false }).order("created_at", { ascending: false });
+        const rows = (addressRows as BuyerAddress[]) ?? []; setAddresses(rows); setSelectedAddressId(rows.find((a) => a.is_default)?.id ?? rows[0]?.id ?? "");
+      }
 
       const { data: tripData } = await supabase
         .from("carrier_trips")
@@ -177,10 +184,9 @@ export default function TripDetailPage() {
       return;
     }
     if (!trip) return;
-    if (!itemDescription.trim()) {
-      setFormError("กรุณาระบุสินค้าที่ต้องการสั่ง");
-      return;
-    }
+    if (!itemDescription.trim()) { setFormError("กรุณาระบุสินค้าที่ต้องการสั่ง"); return; }
+    const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
+    if (!selectedAddress) { setFormError("กรุณาเพิ่มและเลือกที่อยู่จัดส่งก่อนสั่งออเดอร์"); return; }
     if (paymentMethod === "pay_now" && !carrierPromptPay) {
       setFormError("คนหิ้วยังไม่ได้ตั้งค่าพร้อมเพย์ กรุณาเลือก \"จ่ายตอนรับของ\" แทน");
       return;
@@ -199,6 +205,15 @@ export default function TripDetailPage() {
         service_fee_snapshot: trip.service_fee,
         buyer_note: buyerNote.trim() || null,
         payment_method: paymentMethod,
+        delivery_name: selectedAddress.recipient_name,
+        delivery_phone: selectedAddress.phone,
+        delivery_address: selectedAddress.address_text,
+        delivery_province: selectedAddress.province,
+        delivery_district: selectedAddress.district,
+        delivery_subdistrict: selectedAddress.subdistrict,
+        delivery_postal_code: selectedAddress.postal_code,
+        delivery_latitude: selectedAddress.latitude,
+        delivery_longitude: selectedAddress.longitude,
       })
       .select()
       .single();
@@ -210,6 +225,8 @@ export default function TripDetailPage() {
     } else {
       setCreatedOrderId(newOrder.id);
       setSubmitted(true);
+      const session = await supabase.auth.getSession();
+      fetch("/api/notifications/order", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.data.session?.access_token ?? ""}` }, body: JSON.stringify({ order_id: newOrder.id, event: "created" }) }).catch(() => undefined);
     }
   };
 
@@ -287,6 +304,13 @@ export default function TripDetailPage() {
           </p>
         )}
       </div>
+
+      {!isOwner && !isClosed && (
+        <section className="mt-5 ticket-card p-4">
+          <div className="flex items-center justify-between"><h2 className="font-display text-base text-ink">ที่อยู่จัดส่ง</h2><Link href="/profile" className="text-xs text-krachiao underline">จัดการที่อยู่</Link></div>
+          {addresses.length === 0 ? <p className="mt-2 rounded-xl bg-turmeric-light p-3 text-sm text-ink/70">ยังไม่มีที่อยู่ที่บันทึกไว้ กรุณาเพิ่มที่อยู่ในโปรไฟล์ก่อนสั่งออเดอร์</p> : <div className="mt-3 space-y-2">{addresses.map((a) => <label key={a.id} className={`block cursor-pointer rounded-xl border p-3 ${selectedAddressId === a.id ? "border-krachiao bg-krachiao/5" : "border-ink/10"}`}><div className="flex gap-2"><input type="radio" name="delivery-address" checked={selectedAddressId === a.id} onChange={() => setSelectedAddressId(a.id)} className="mt-1 accent-krachiao"/><div><p className="text-sm font-medium">{a.label} {a.is_default && <span className="text-xs text-krachiao">(เริ่มต้น)</span>}</p><p className="mt-0.5 text-xs text-ink/60">{a.recipient_name} · {a.phone}</p><p className="mt-1 text-xs text-ink/60">{a.address_text}</p>{a.latitude != null && a.longitude != null && <a href={`https://www.google.com/maps?q=${a.latitude},${a.longitude}`} target="_blank" rel="noreferrer" onClick={(e)=>e.stopPropagation()} className="mt-1 inline-block text-xs text-krachiao underline">ดูตำแหน่งบนแผนที่</a>}</div></div></label>)}</div>}
+        </section>
+      )}
 
       {isOwner ? (
         <section className="mt-8">

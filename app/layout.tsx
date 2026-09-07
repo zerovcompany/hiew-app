@@ -21,7 +21,8 @@ export default function RootLayout({
           <Nav />
           {children}
           <footer className="mx-auto mt-16 max-w-5xl px-4 py-8 text-center text-xs text-ink/40">
-            หิ้วชัยภูมิ · ทำด้วยใจเพื่อคนชัยภูมิ
+            <span className="block">หิ้วชัยภูมิ · ทำด้วยใจเพื่อคนชัยภูมิ</span>
+            <span className="mt-1 block">Developed by <strong className="font-medium text-ink/50">SupremeP</strong></span>
           </footer>
           <BottomNav />
         </UserProvider>
