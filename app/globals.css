@@ -1,0 +1,126 @@
+@import url("https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #f7f3e8;
+  color: #1e2a22;
+  font-family: "Sarabun", sans-serif;
+}
+
+h1, h2, h3, .font-display {
+  font-family: "Mitr", sans-serif;
+}
+
+/* ============================================================
+   ลายผ้ามัดหมี่ (ikat) — ใช้เป็นลายพื้นหลังบาง ๆ ใน hero / แถบหัวข้อ
+   เพื่อให้อัตลักษณ์ชัยภูมิชัดเจน แทนพื้นหลังเรียบ ๆ แบบทั่วไป
+   ============================================================ */
+.ikat-band {
+  background-color: #2b4570;
+  background-image:
+    linear-gradient(135deg, rgba(255,255,255,0.08) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.08) 75%, transparent 75%, transparent),
+    linear-gradient(45deg, rgba(227,167,47,0.18) 25%, transparent 25%, transparent 50%, rgba(227,167,47,0.18) 50%, rgba(227,167,47,0.18) 75%, transparent 75%, transparent);
+  background-size: 28px 28px, 28px 28px;
+}
+
+.ikat-wash {
+  position: relative;
+  isolation: isolate;
+}
+
+.ikat-wash::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    radial-gradient(circle at 12px 12px, rgba(209,84,140,0.10) 3px, transparent 3.5px),
+    radial-gradient(circle at 26px 26px, rgba(43,69,112,0.10) 3px, transparent 3.5px);
+  background-size: 32px 32px;
+}
+
+/* การ์ดทรง "ตั๋ว/ใบเสร็จ" — ขอบหยักด้านล่างจำลองรอยฉีกตั๋ว
+   สงวนไว้ใช้กับของที่เป็น "ใบเสร็จ/สลิป" จริง ๆ (เที่ยวหิ้ว, ออเดอร์)
+   ไม่ใช้พร่ำเพรื่อกับทุกกล่องเพื่อคงความหมายของรูปทรงนี้ไว้ */
+.ticket-card {
+  position: relative;
+  background: #fffdf8;
+  border: 1px solid #e7ddc9;
+  border-radius: 4px;
+}
+
+.ticket-card::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 10px;
+  background-image: radial-gradient(circle at 6px 0, transparent 6px, #f7f3e8 6.5px);
+  background-size: 12px 12px;
+  background-repeat: repeat-x;
+}
+
+/* พื้นผิวทั่วไป (การนำทาง, ฟอร์ม) ใช้ทรงมนธรรมดา ไม่ใช่ทรงตั๋ว
+   เพื่อให้ผู้ใช้แยก "เอกสาร/ใบเสร็จ" ออกจาก "ส่วนควบคุม" ได้ด้วยรูปทรง */
+.surface-card {
+  background: #fffdf8;
+  border: 1px solid #e7ddc9;
+  border-radius: 14px;
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid #d1548c;
+  outline-offset: 2px;
+}
+
+/* ปุ่ม/ชิป มาตรฐาน */
+.btn-primary {
+  @apply focus-ring inline-flex items-center justify-center gap-2 rounded-full bg-krachiao px-5 py-3 font-medium text-white transition-colors hover:bg-krachiao-dark disabled:cursor-not-allowed disabled:opacity-60;
+}
+.btn-secondary {
+  @apply focus-ring inline-flex items-center justify-center gap-2 rounded-full bg-mudmee px-5 py-3 font-medium text-white transition-colors hover:bg-mudmee-dark disabled:cursor-not-allowed disabled:opacity-60;
+}
+.btn-ghost {
+  @apply focus-ring inline-flex items-center justify-center gap-2 rounded-full border border-ink/15 bg-transparent px-5 py-3 font-medium text-ink transition-colors hover:bg-ink/5;
+}
+.chip {
+  @apply whitespace-nowrap rounded-chip border border-ink/10 bg-white px-3.5 py-1.5 text-sm font-medium text-ink/70 transition-colors;
+}
+.chip[data-active="true"] {
+  @apply border-krachiao bg-krachiao text-white;
+}
+.field {
+  @apply focus-ring w-full rounded-xl border border-ink/15 bg-white p-3 text-sm text-ink placeholder:text-ink/35;
+}
+.field-label {
+  @apply mb-1.5 block text-sm font-medium text-ink;
+}
+
+/* skeleton loading — แทนคำว่า "กำลังโหลด..." เฉย ๆ */
+.skeleton {
+  border-radius: 10px;
+  background: linear-gradient(90deg, #ece5d3 25%, #f3ede0 37%, #ece5d3 63%);
+  background-size: 400% 100%;
+}
+
+/* เผื่อพื้นที่ให้แถบเมนูล่างบนมือถือ (super-app bottom nav) */
+.pb-safe-nav {
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+}
+
+/* ลด motion ให้คนที่ตั้งค่า reduce motion ไว้ */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
