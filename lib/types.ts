@@ -4,6 +4,7 @@ export type Profile = {
   display_name: string;
   avatar_url: string | null;
   phone: string | null;
+  promptpay_id: string | null;
   is_buyer: boolean;
   is_carrier: boolean;
   carrier_verified: boolean;
@@ -32,6 +33,7 @@ export type Shop = {
   image_url: string | null;
   address_hint: string | null;
   order_count: number;
+  created_at?: string;
 };
 
 export type TripStatus = "open" | "closed" | "completed" | "cancelled";
@@ -69,6 +71,9 @@ export type OrderStatus =
   | "delivered"
   | "cancelled";
 
+export type PaymentMethod = "pay_now" | "pay_on_delivery";
+export type PaymentStatus = "unpaid" | "paid";
+
 export type Order = {
   id: string;
   trip_id: string;
@@ -79,6 +84,8 @@ export type Order = {
   service_fee_snapshot: number;
   total_price: number;
   status: OrderStatus;
+  payment_method: PaymentMethod;
+  payment_status: PaymentStatus;
   buyer_note: string | null;
   created_at: string;
 };

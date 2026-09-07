@@ -20,6 +20,10 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
 
+  const [promptPayInput, setPromptPayInput] = useState("");
+  const [savingPromptPay, setSavingPromptPay] = useState(false);
+  const [promptPaySaved, setPromptPaySaved] = useState(false);
+
   useEffect(() => {
     const load = async () => {
       const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
@@ -43,6 +47,7 @@ export default function ProfilePage() {
       }
 
       setProfile(data as Profile);
+      setPromptPayInput((data as Profile).promptpay_id ?? "");
 
       const { data: verif } = await supabase
         .from("carrier_verifications")
@@ -68,6 +73,23 @@ export default function ProfilePage() {
     const updated = { ...profile, [field]: !profile[field] };
     setProfile(updated);
     await supabase.from("profiles").update({ [field]: updated[field] }).eq("id", profile.id);
+  };
+
+  const handleSavePromptPay = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile) return;
+    setSavingPromptPay(true);
+    setPromptPaySaved(false);
+    const cleaned = promptPayInput.trim();
+    const { error } = await supabase
+      .from("profiles")
+      .update({ promptpay_id: cleaned || null })
+      .eq("id", profile.id);
+    setSavingPromptPay(false);
+    if (!error) {
+      setProfile({ ...profile, promptpay_id: cleaned || null });
+      setPromptPaySaved(true);
+    }
   };
 
   const handleVerificationSubmit = async (e: React.FormEvent) => {
@@ -161,6 +183,34 @@ export default function ProfilePage() {
           </label>
         </div>
       </section>
+
+      {profile.is_carrier && (
+        <section className="mt-6">
+          <h2 className="font-display text-lg text-ink">พร้อมเพย์รับเงิน</h2>
+          <p className="mt-1 text-sm text-ink/60">
+            ใส่เบอร์โทรหรือเลขบัตรประชาชนที่ผูกพร้อมเพย์ไว้ ระบบจะโชว์ QR ให้คนซื้อโอนตอนเลือก &quot;จ่ายเลย&quot;
+          </p>
+          <form onSubmit={handleSavePromptPay} className="surface-card mt-3 space-y-3 p-4">
+            <div>
+              <label className="field-label">เบอร์พร้อมเพย์ / เลขบัตรประชาชน</label>
+              <input
+                value={promptPayInput}
+                onChange={(e) => {
+                  setPromptPayInput(e.target.value);
+                  setPromptPaySaved(false);
+                }}
+                placeholder="เช่น 0812345678"
+                className="field"
+                inputMode="numeric"
+              />
+            </div>
+            {promptPaySaved && <p className="text-sm text-emerald-700">บันทึกแล้ว ✓</p>}
+            <button type="submit" disabled={savingPromptPay} className="btn-secondary w-full">
+              {savingPromptPay ? "กำลังบันทึก..." : "บันทึกพร้อมเพย์"}
+            </button>
+          </form>
+        </section>
+      )}
 
       {profile.is_carrier && (
         <section className="mt-6">

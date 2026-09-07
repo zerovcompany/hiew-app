@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import type { Profile } from "@/lib/types";
-import { IconShieldCheck } from "@/components/Icons";
+import type { Profile, Shop } from "@/lib/types";
+import { IconShieldCheck, IconSearch } from "@/components/Icons";
 
 type MenuRow = { name: string; price: string };
 
@@ -13,7 +13,10 @@ export default function NewTripPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [checking, setChecking] = useState(true);
 
+  // ร้านที่มีอยู่แล้วในระบบ ไว้ให้เลือกซ้ำ แทนที่จะพิมพ์ใหม่ทุกครั้ง
+  const [existingShops, setExistingShops] = useState<Shop[]>([]);
   const [shopNameText, setShopNameText] = useState("");
+  const [shopSearchFocused, setShopSearchFocused] = useState(false);
   const [description, setDescription] = useState("");
   const [orderCutoffAt, setOrderCutoffAt] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
@@ -41,7 +44,28 @@ export default function NewTripPage() {
       setChecking(false);
     };
     load();
+
+    // โหลดร้านที่เคยมีในระบบไว้ทั้งหมด (เรียงตามยอดนิยมก่อน) ให้เลือกอิงจากของเดิมได้
+    supabase
+      .from("shops")
+      .select("*")
+      .order("order_count", { ascending: false })
+      .limit(200)
+      .then(({ data }) => {
+        if (data) setExistingShops(data as Shop[]);
+      });
   }, [router]);
+
+  const shopSuggestions = useMemo(() => {
+    const q = shopNameText.trim().toLowerCase();
+    if (!q) return existingShops.slice(0, 6);
+    return existingShops.filter((s) => s.name.toLowerCase().includes(q)).slice(0, 6);
+  }, [shopNameText, existingShops]);
+
+  const exactShopMatch = useMemo(
+    () => existingShops.find((s) => s.name.trim().toLowerCase() === shopNameText.trim().toLowerCase()),
+    [shopNameText, existingShops]
+  );
 
   const updateMenuRow = (i: number, field: keyof MenuRow, value: string) => {
     setMenuRows((rows) => rows.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
@@ -60,11 +84,37 @@ export default function NewTripPage() {
     const { data: sessionData } = await supabase.auth.getSession();
     const carrierId = sessionData.session!.user.id;
 
+    // เช็คว่าร้านนี้เคยถูกสร้างไว้แล้วหรือยัง (ไม่สนตัวพิมพ์เล็ก/ใหญ่/เว้นวรรคหน้า-หลัง)
+    // ถ้ามีแล้ว ผูกกับร้านเดิมเลย ถ้ายังไม่มี ค่อยสร้างร้านใหม่เก็บไว้ในระบบ
+    // เพื่อให้คนที่มาเปิดรับหิ้วร้านเดียวกันในรอบถัดไป เจอและเลือกร้านเดิมได้ทันที
+    const trimmedShopName = shopNameText.trim();
+    let shopId: string | null = exactShopMatch?.id ?? null;
+
+    if (!shopId && trimmedShopName) {
+      const { data: foundShop } = await supabase
+        .from("shops")
+        .select("id")
+        .ilike("name", trimmedShopName)
+        .maybeSingle();
+
+      if (foundShop) {
+        shopId = foundShop.id;
+      } else {
+        const { data: newShop, error: shopErr } = await supabase
+          .from("shops")
+          .insert({ name: trimmedShopName })
+          .select("id")
+          .single();
+        if (!shopErr && newShop) shopId = newShop.id;
+      }
+    }
+
     const { data: trip, error } = await supabase
       .from("carrier_trips")
       .insert({
         carrier_id: carrierId,
-        shop_name_text: shopNameText,
+        shop_id: shopId,
+        shop_name_text: trimmedShopName,
         description: description || null,
         order_cutoff_at: new Date(orderCutoffAt).toISOString(),
         delivery_date: deliveryDate,
@@ -125,10 +175,49 @@ export default function NewTripPage() {
       <form onSubmit={handleSubmit} className="mt-6 space-y-5">
         <div className="surface-card space-y-4 p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-mudmee">ร้านที่จะไปหิ้ว</p>
-          <div>
+          <div className="relative">
             <label className="field-label">ชื่อร้าน *</label>
-            <input value={shopNameText} onChange={(e) => setShopNameText(e.target.value)}
-              className="field" placeholder="เช่น ชานมโกลด์ ทีคาเฟ่" />
+            <div className="relative">
+              <IconSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/30" />
+              <input
+                value={shopNameText}
+                onChange={(e) => setShopNameText(e.target.value)}
+                onFocus={() => setShopSearchFocused(true)}
+                onBlur={() => setTimeout(() => setShopSearchFocused(false), 150)}
+                className="field pl-9"
+                placeholder="พิมพ์ชื่อร้าน เช่น ชานมโกลด์ ทีคาเฟ่"
+                autoComplete="off"
+              />
+            </div>
+
+            {exactShopMatch ? (
+              <p className="mt-1.5 text-xs text-emerald-700">
+                ✓ ใช้ร้านเดิมที่มีอยู่แล้วในระบบ — คนซื้อจะค้นหาร้านนี้เจอง่ายขึ้น
+              </p>
+            ) : shopNameText.trim() ? (
+              <p className="mt-1.5 text-xs text-ink/45">
+                ยังไม่มีร้านนี้ในระบบ — ระบบจะบันทึกเป็นร้านใหม่ให้อัตโนมัติ
+              </p>
+            ) : null}
+
+            {shopSearchFocused && shopSuggestions.length > 0 && (
+              <div className="surface-card absolute z-10 mt-1.5 max-h-56 w-full overflow-y-auto !rounded-xl p-1.5 shadow-lifted">
+                <p className="px-2 pb-1 pt-0.5 text-xs text-ink/40">ร้านที่มีอยู่แล้วในระบบ</p>
+                {shopSuggestions.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onMouseDown={() => setShopNameText(s.name)}
+                    className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm text-ink hover:bg-ink/5"
+                  >
+                    <span>{s.name}</span>
+                    {s.order_count > 0 && (
+                      <span className="shrink-0 text-xs text-ink/40">หิ้วแล้ว {s.order_count} ครั้ง</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <label className="field-label">รายละเอียดเพิ่มเติม</label>
@@ -137,13 +226,36 @@ export default function NewTripPage() {
           </div>
           <div>
             <label className="field-label">เมนูที่รับหิ้ว (ไม่บังคับ ช่วยให้คนซื้อเลือกง่ายขึ้น)</label>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {menuRows.map((row, i) => (
-                <div key={i} className="flex gap-2">
-                  <input value={row.name} onChange={(e) => updateMenuRow(i, "name", e.target.value)}
-                    placeholder="ชื่อเมนู" className="field flex-1" />
-                  <input value={row.price} onChange={(e) => updateMenuRow(i, "price", e.target.value)}
-                    placeholder="ราคา" type="number" className="field w-24" />
+                <div key={i} className="surface-card flex items-center gap-2 p-2 focus-within:border-krachiao focus-within:ring-2 focus-within:ring-krachiao/30">
+                  <input
+                    value={row.name}
+                    onChange={(e) => updateMenuRow(i, "name", e.target.value)}
+                    placeholder="ชื่อเมนู เช่น ชานมไข่มุก ไซส์ M"
+                    className="field min-w-0 flex-1 border-0 bg-transparent p-2 text-base focus-visible:outline-none"
+                  />
+                  <div className="flex shrink-0 items-center gap-1.5 border-l border-ink/10 pl-2">
+                    <input
+                      value={row.price}
+                      onChange={(e) => updateMenuRow(i, "price", e.target.value)}
+                      placeholder="ราคา"
+                      type="number"
+                      inputMode="numeric"
+                      className="field w-20 border-0 bg-transparent p-2 text-base focus-visible:outline-none"
+                    />
+                    <span className="text-xs text-ink/40">บาท</span>
+                    {menuRows.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setMenuRows((rows) => rows.filter((_, idx) => idx !== i))}
+                        aria-label="ลบเมนูนี้"
+                        className="focus-ring rounded-full p-1.5 text-ink/30 hover:bg-red-50 hover:text-red-500"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

@@ -10,11 +10,13 @@ export default function BottomNav() {
   const { user } = useUser();
   const loggedIn = !!user;
 
+  // "ออเดอร์" เป็นจุดเดียวที่รวมทั้งออเดอร์ที่สั่งและเที่ยวหิ้วที่เปิดรับ (มีแท็บสลับในหน้านั้น)
+  // กันไม่ให้มีเมนูที่ดูคล้าย "ออเดอร์" หลายจุดจนสับสนว่าต้องกดอันไหน
   const items = [
     { href: "/", label: "หน้าแรก", icon: IconHome },
     { href: "/trips", label: "เที่ยวหิ้ว", icon: IconRoute },
     { href: loggedIn ? "/trips/new" : "/login", label: "เปิดรับหิ้ว", icon: IconPlus, accent: true },
-    { href: loggedIn ? "/my-orders" : "/login", label: "ออเดอร์", icon: IconBag },
+    { href: loggedIn ? "/orders" : "/login", label: "ออเดอร์", icon: IconBag },
     { href: loggedIn ? "/profile" : "/login", label: "โปรไฟล์", icon: IconUser },
   ];
 
@@ -30,10 +32,16 @@ export default function BottomNav() {
           const active = isActive(href);
           if (accent) {
             return (
-              <Link key={href} href={href} className="focus-ring -mt-5 flex flex-col items-center gap-1">
+              <Link
+                key={href}
+                href={href}
+                aria-label={label}
+                className="focus-ring -mt-5 flex flex-col items-center gap-1"
+              >
                 <span className="flex h-12 w-12 items-center justify-center rounded-full bg-krachiao text-white shadow-lifted">
                   <Icon className="h-6 w-6" />
                 </span>
+                <span className="text-[11px] font-medium text-krachiao">{label}</span>
               </Link>
             );
           }

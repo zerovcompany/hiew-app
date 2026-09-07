@@ -9,20 +9,43 @@ import EmptyState from "@/components/EmptyState";
 import { SkeletonGrid } from "@/components/Skeleton";
 import { IconSearch, IconRoute, IconPlus } from "@/components/Icons";
 
+// ถ้าร้านในระบบยังมีไม่เยอะ ให้โชว์ "ร้านทั้งหมด" ก่อน (เรียงร้านใหม่สุดก่อน)
+// พอร้านเริ่มเยอะเกินเกณฑ์นี้ ค่อยสลับไปเรียงตาม "ยอดนิยม" (order_count) แทน
+const ALL_SHOPS_THRESHOLD = 12;
+
 export default function HomePage() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string | null>(null);
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showingAll, setShowingAll] = useState(true);
 
   useEffect(() => {
     const timer = setTimeout(async () => {
       setLoading(true);
-      let req = supabase
-        .from("shops")
-        .select("*")
-        .order("order_count", { ascending: false })
-        .limit(24);
+      const isBrowsing = !query.trim() && !category;
+
+      // ตอนกำลัง "เดินดู" (ไม่ได้ค้นหา/กรอง) ต้องรู้ก่อนว่าร้านทั้งหมดมีกี่ร้าน
+      // เพื่อเลือกว่าจะโชว์ "ร้านทั้งหมด" หรือสลับเป็น "ร้านยอดนิยม"
+      let totalCount = 0;
+      if (isBrowsing) {
+        const { count } = await supabase
+          .from("shops")
+          .select("id", { count: "exact", head: true });
+        totalCount = count ?? 0;
+      }
+      const willShowAll = isBrowsing && totalCount <= ALL_SHOPS_THRESHOLD;
+      setShowingAll(willShowAll);
+
+      let req = supabase.from("shops").select("*");
+
+      if (willShowAll) {
+        // ร้านยังไม่เยอะ: โชว์ทุกร้าน ใหม่สุดก่อน ไม่ต้องรอยอด order_count สะสม
+        req = req.order("created_at", { ascending: false }).limit(48);
+      } else {
+        // ร้านเยอะแล้ว: เรียงตามความนิยม (จำนวนครั้งที่หิ้วสำเร็จ) แล้วจำกัดจำนวนที่โชว์
+        req = req.order("order_count", { ascending: false }).limit(24);
+      }
 
       if (query.trim()) req = req.ilike("name", `%${query.trim()}%`);
       if (category) req = req.eq("category", category);
@@ -89,7 +112,7 @@ export default function HomePage() {
 
         <section className="mt-6">
           <h2 className="font-display text-xl text-ink">
-            {query ? `ผลการค้นหา "${query}"` : "ร้านยอดนิยม"}
+            {query ? `ผลการค้นหา "${query}"` : showingAll ? "ร้านทั้งหมด" : "ร้านยอดนิยม"}
           </h2>
 
           {loading ? (

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import type { CarrierTrip, TripMenuItem } from "@/lib/types";
+import type { CarrierTrip, PaymentMethod, TripMenuItem } from "@/lib/types";
 import type { User } from "@supabase/supabase-js";
 import { SkeletonCard } from "@/components/Skeleton";
 
@@ -22,6 +22,7 @@ export default function TripDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [itemPrice, setItemPrice] = useState<string>("");
   const [buyerNote, setBuyerNote] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("pay_on_delivery");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -33,7 +34,7 @@ export default function TripDetailPage() {
       setLoading(true);
       const { data: tripData } = await supabase
         .from("carrier_trips")
-        .select("*, profiles(display_name, rating_avg, rating_count, avatar_url), shops(name)")
+        .select("*, profiles(display_name, rating_avg, rating_count, avatar_url, promptpay_id), shops(name)")
         .eq("id", id)
         .maybeSingle();
       setTrip(tripData as unknown as CarrierTrip);
@@ -62,6 +63,24 @@ export default function TripDetailPage() {
     }
   };
 
+  // คำนวณยอดรวม: ราคาสินค้า x จำนวน + ค่าหิ้ว (ค่าหิ้วคิดตาม fee_type ของเที่ยวนี้)
+  const priceBreakdown = useMemo(() => {
+    const qty = Math.max(1, quantity || 1);
+    const unitPrice = itemPrice ? Number(itemPrice) : 0;
+    const itemsSubtotal = unitPrice * qty;
+    const fee = trip
+      ? trip.fee_type === "per_item"
+        ? trip.service_fee * qty
+        : trip.service_fee // per_order หรือ flat คิดเหมาไม่คูณจำนวน
+      : 0;
+    return { itemsSubtotal, fee, total: itemsSubtotal + fee, hasKnownItemPrice: !!itemPrice };
+  }, [itemPrice, quantity, trip]);
+
+  const carrierPromptPay = trip?.profiles?.promptpay_id?.replace(/[^0-9]/g, "") ?? "";
+  const promptPayQrUrl = carrierPromptPay
+    ? `https://promptpay.io/${carrierPromptPay}/${priceBreakdown.total.toFixed(2)}.png`
+    : null;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -75,6 +94,10 @@ export default function TripDetailPage() {
       setFormError("กรุณาระบุสินค้าที่ต้องการสั่ง");
       return;
     }
+    if (paymentMethod === "pay_now" && !carrierPromptPay) {
+      setFormError("คนหิ้วยังไม่ได้ตั้งค่าพร้อมเพย์ กรุณาเลือก \"จ่ายตอนรับของ\" แทน");
+      return;
+    }
 
     setSubmitting(true);
     const { error } = await supabase.from("orders").insert({
@@ -86,6 +109,7 @@ export default function TripDetailPage() {
       item_price: itemPrice ? Number(itemPrice) : null,
       service_fee_snapshot: trip.service_fee,
       buyer_note: buyerNote.trim() || null,
+      payment_method: paymentMethod,
     });
     setSubmitting(false);
 
@@ -159,7 +183,7 @@ export default function TripDetailPage() {
         ) : submitted ? (
           <div className="mt-3 ticket-card p-4 text-sm text-ink">
             สั่งซื้อเรียบร้อย รอคนหิ้วยืนยันออเดอร์ — ดูสถานะได้ที่{" "}
-            <a href="/my-orders" className="text-krachiao underline">ออเดอร์ของฉัน</a>
+            <a href="/orders" className="text-krachiao underline">ออเดอร์ของฉัน</a>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="surface-card mt-3 space-y-4 p-4">
@@ -225,10 +249,95 @@ export default function TripDetailPage() {
               />
             </div>
 
+            {/* สรุปยอดรวม — คำนวณสดจากราคาสินค้า x จำนวน + ค่าหิ้ว */}
+            <div className="ticket-card space-y-1.5 p-4 text-sm">
+              <div className="flex items-center justify-between text-ink/60">
+                <span>ค่าสินค้า{priceBreakdown.hasKnownItemPrice ? "" : " (ยังไม่ระบุราคา)"}</span>
+                <span>{priceBreakdown.itemsSubtotal.toFixed(0)} บาท</span>
+              </div>
+              <div className="flex items-center justify-between text-ink/60">
+                <span>
+                  ค่าหิ้ว{" "}
+                  {trip.fee_type === "per_item" ? `(${trip.service_fee.toFixed(0)} × ${Math.max(1, quantity || 1)})` : ""}
+                </span>
+                <span>{priceBreakdown.fee.toFixed(0)} บาท</span>
+              </div>
+              <div className="flex items-center justify-between border-t border-dashed border-ink/15 pt-1.5 font-display text-base text-ink">
+                <span>ยอดรวมทั้งหมด</span>
+                <span className="text-krachiao">{priceBreakdown.total.toFixed(0)} บาท</span>
+              </div>
+              {!priceBreakdown.hasKnownItemPrice && (
+                <p className="pt-0.5 text-xs text-ink/40">
+                  * ยอดสุดท้ายอาจเปลี่ยนตามราคาจริงที่ร้าน คนหิ้วจะแจ้งราคาที่แน่นอนอีกครั้ง
+                </p>
+              )}
+            </div>
+
+            {/* เลือกวิธีชำระเงิน */}
+            <div>
+              <label className="field-label">วิธีชำระเงิน</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("pay_on_delivery")}
+                  className={`focus-ring rounded-xl border p-3 text-left text-sm transition-colors ${
+                    paymentMethod === "pay_on_delivery"
+                      ? "border-krachiao bg-krachiao/5 text-ink"
+                      : "border-ink/15 text-ink/60 hover:bg-ink/5"
+                  }`}
+                >
+                  <span className="block font-medium">จ่ายตอนรับของ</span>
+                  <span className="block text-xs text-ink/45">นัดจ่ายเงินสดหรือโอนตอนรับของ</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("pay_now")}
+                  className={`focus-ring rounded-xl border p-3 text-left text-sm transition-colors ${
+                    paymentMethod === "pay_now"
+                      ? "border-krachiao bg-krachiao/5 text-ink"
+                      : "border-ink/15 text-ink/60 hover:bg-ink/5"
+                  }`}
+                >
+                  <span className="block font-medium">จ่ายเลย</span>
+                  <span className="block text-xs text-ink/45">โอนผ่านพร้อมเพย์ทันที</span>
+                </button>
+              </div>
+
+              {paymentMethod === "pay_now" && (
+                <div className="mt-3 rounded-xl bg-cream p-4 text-center">
+                  {carrierPromptPay ? (
+                    <>
+                      <p className="text-sm text-ink/70">สแกนเพื่อโอนให้คนหิ้ว</p>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={promptPayQrUrl!}
+                        alt={`พร้อมเพย์ QR ยอด ${priceBreakdown.total.toFixed(0)} บาท`}
+                        className="mx-auto mt-2 h-44 w-44 rounded-lg bg-white p-2 shadow-sm"
+                      />
+                      <p className="mt-2 font-display text-lg text-krachiao">
+                        {priceBreakdown.total.toFixed(0)} บาท
+                      </p>
+                      <p className="mt-1 text-xs text-ink/45">
+                        พร้อมเพย์: {trip.profiles?.promptpay_id} · แคปหน้าจอสลิปเก็บไว้เป็นหลักฐาน
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-ink/60">
+                      คนหิ้วยังไม่ได้ตั้งค่าพร้อมเพย์ กรุณาเลือก &quot;จ่ายตอนรับของ&quot; แทนไปก่อน
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
             {formError && <p className="text-sm text-red-600">{formError}</p>}
 
             <button type="submit" disabled={submitting} className="btn-primary w-full">
-              {submitting ? "กำลังส่งออเดอร์..." : user ? "ยืนยันสั่งซื้อ" : "เข้าสู่ระบบเพื่อสั่งซื้อ"}
+              {submitting
+                ? "กำลังส่งออเดอร์..."
+                : !user
+                ? "เข้าสู่ระบบเพื่อสั่งซื้อ"
+                : `ยืนยันสั่งซื้อ · ${priceBreakdown.total.toFixed(0)} บาท`}
             </button>
           </form>
         )}
