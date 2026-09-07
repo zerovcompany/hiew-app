@@ -33,7 +33,7 @@ export default function BottomNav() {
           if (accent) {
             return (
               <Link
-                key={href}
+                key={label}
                 href={href}
                 aria-label={label}
                 className="focus-ring -mt-5 flex flex-col items-center gap-1"
@@ -47,7 +47,7 @@ export default function BottomNav() {
           }
           return (
             <Link
-              key={href}
+              key={label}
               href={href}
               className={`focus-ring flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium ${
                 active ? "text-krachiao" : "text-ink/50"
