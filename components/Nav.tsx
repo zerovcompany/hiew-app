@@ -96,14 +96,6 @@ export default function Nav() {
                     {user.user_metadata?.name ?? "บัญชีของฉัน"}
                   </p>
                   <Link
-                    href="/orders"
-                    onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-ink hover:bg-ink/5 sm:hidden"
-                  >
-                    <IconUser className="h-4 w-4 text-ink/50" />
-                    ออเดอร์
-                  </Link>
-                  <Link
                     href="/profile"
                     onClick={() => setMenuOpen(false)}
                     className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-ink hover:bg-ink/5"

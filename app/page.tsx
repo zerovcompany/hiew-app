@@ -85,11 +85,16 @@ export default function HomePage() {
             />
           </div>
 
+          {/* ปุ่ม "เปิดรับหิ้ว" ซ่อนบนมือถือ (sm:flex) เพราะ BottomNav มีปุ่มนี้อยู่แล้วเป็น accent button
+              การโชว์ซ้ำสองที่ในหน้าจอเดียวกันทำให้ผู้ใช้สับสนว่าต้องกดอันไหน */}
           <div className="mt-4 flex gap-3">
             <Link href="/trips" className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20">
               <IconRoute className="h-4 w-4" /> ดูเที่ยวหิ้วทั้งหมด
             </Link>
-            <Link href="/trips/new" className="flex items-center gap-2 rounded-full bg-krachiao px-4 py-2 text-sm font-medium text-white hover:bg-krachiao-dark">
+            <Link
+              href="/trips/new"
+              className="hidden items-center gap-2 rounded-full bg-krachiao px-4 py-2 text-sm font-medium text-white hover:bg-krachiao-dark sm:flex"
+            >
               <IconPlus className="h-4 w-4" /> เปิดรับหิ้ว
             </Link>
           </div>
