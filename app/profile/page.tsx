@@ -38,6 +38,8 @@ export default function ProfilePage() {
   const [lineEnabled, setLineEnabled] = useState(true);
   const [savingLine, setSavingLine] = useState(false);
   const [lineFriend, setLineFriend] = useState(false);
+  const [checkingLine, setCheckingLine] = useState(false);
+  const [lineAddOpened, setLineAddOpened] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -156,8 +158,35 @@ export default function ProfilePage() {
   };
 
   const refreshLineFriendship = () => {
-    // การ login ใหม่จะตรวจ friendship status กับ LINE และอัปเดต profiles.line_friend
+    // Login ใหม่จะตรวจ friendship status กับ LINE และอัปเดต profiles.line_friend
+    setCheckingLine(true);
     window.location.href = "/login?line_friend_check=1";
+  };
+
+  const openLineAddFriend = () => {
+    // เปิด OA ในแท็บใหม่ เพื่อให้หน้านี้ยังอยู่และรอ webhook follow จาก LINE
+    const win = window.open("https://lin.ee/Tncf8ut", "_blank", "noopener,noreferrer");
+    setLineAddOpened(true);
+
+    // รอ webhook ที่ server อัปเดต profiles.line_friend=true หลังผู้ใช้กดเพิ่มเพื่อน
+    if (!win || !profile) return;
+    let attempts = 0;
+    const timer = window.setInterval(async () => {
+      attempts += 1;
+      const { data } = await supabase
+        .from("profiles")
+        .select("line_friend")
+        .eq("id", profile.id)
+        .maybeSingle();
+      if (data?.line_friend === true) {
+        window.clearInterval(timer);
+        setLineFriend(true);
+        setLineEnabled((current) => current);
+        setLineAddOpened(false);
+      } else if (attempts >= 60) {
+        window.clearInterval(timer);
+      }
+    }, 2000);
   };
 
   const handleVerificationSubmit = async (e: React.FormEvent) => {
@@ -264,14 +293,29 @@ export default function ProfilePage() {
                 {lineFriend ? "● เพิ่มเพื่อนแล้ว พร้อมรับการแจ้งเตือน" : "● ยังไม่ได้เพิ่มเพื่อน LINE OA"}
               </p>
             </div>
-            <button type="button" onClick={refreshLineFriendship} className="rounded-full border border-ink/10 px-3 py-1.5 text-xs font-medium text-ink">
-              {lineFriend ? "ตรวจสอบอีกครั้ง" : "เพิ่มเพื่อน / ตรวจสอบ"}
+            <button
+              type="button"
+              onClick={refreshLineFriendship}
+              disabled={checkingLine}
+              className="rounded-full border border-ink/10 px-3 py-1.5 text-xs font-medium text-ink disabled:opacity-60"
+            >
+              {checkingLine ? "กำลังตรวจสอบ..." : lineFriend ? "ตรวจสอบอีกครั้ง" : "ตรวจสอบ / เพิ่มเพื่อน"}
             </button>
           </div>
           {!lineFriend && (
-            <p className="mt-3 rounded-xl bg-turmeric-light p-3 text-xs leading-5 text-ink/70">
-              ต้องเพิ่มเพื่อน LINE Official Account ที่ผูกกับแอปก่อน ระบบจึงจะส่งแจ้งเตือนออเดอร์ให้ได้ การกดปุ่มด้านบนจะพาเข้าสู่ LINE Login พร้อมแสดงตัวเลือกเพิ่มเพื่อน
-            </p>
+            <div className="mt-3 rounded-xl bg-turmeric-light p-3 text-xs leading-5 text-ink/70">
+              <p>ยังไม่พบว่าคุณเพิ่ม LINE Official Account ระบบจึงยังส่งแจ้งเตือนไม่ได้</p>
+              <button
+                type="button"
+                onClick={openLineAddFriend}
+                className="mt-3 w-full rounded-full bg-line px-4 py-2.5 text-sm font-medium text-white hover:bg-[#05a847]"
+              >
+                {lineAddOpened ? "กำลังรอการเพิ่มเพื่อน..." : "เพิ่มเพื่อน LINE เพื่อเปิดแจ้งเตือน"}
+              </button>
+              <p className="mt-2 text-center text-[11px] text-ink/50">
+                หลังเพิ่มเพื่อนแล้ว หน้านี้จะตรวจพบอัตโนมัติจาก LINE
+              </p>
+            </div>
           )}
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-ink/10 pt-3">
             <div><p className="font-medium">แจ้งเตือนออเดอร์สำคัญ</p><p className="mt-1 text-xs text-ink/50">สั่งใหม่ / รับออเดอร์ / ยกเลิก / ส่งสำเร็จ</p></div>
