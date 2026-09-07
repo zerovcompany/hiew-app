@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import BottomNav from "@/components/BottomNav";
+import { UserProvider } from "@/lib/supabase/useUser";
 
 export const metadata: Metadata = {
   title: "หิ้วชัยภูมิ — แอปรับหิ้วของสำหรับคนชัยภูมิ",
@@ -16,12 +17,14 @@ export default function RootLayout({
   return (
     <html lang="th">
       <body className="min-h-screen font-body pb-safe-nav sm:pb-0">
-        <Nav />
-        {children}
-        <footer className="mx-auto mt-16 max-w-5xl px-4 py-8 text-center text-xs text-ink/40">
-          หิ้วชัยภูมิ · ทำด้วยใจเพื่อคนชัยภูมิ
-        </footer>
-        <BottomNav />
+        <UserProvider>
+          <Nav />
+          {children}
+          <footer className="mx-auto mt-16 max-w-5xl px-4 py-8 text-center text-xs text-ink/40">
+            หิ้วชัยภูมิ · ทำด้วยใจเพื่อคนชัยภูมิ
+          </footer>
+          <BottomNav />
+        </UserProvider>
       </body>
     </html>
   );
