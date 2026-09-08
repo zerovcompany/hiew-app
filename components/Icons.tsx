@@ -202,6 +202,27 @@ export function IconCalendar({ className = base }: IconProps) {
   );
 }
 
+export function IconShare({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <circle cx="18" cy="5" r="2.5" stroke="currentColor" strokeWidth="2" />
+      <circle cx="6" cy="12" r="2.5" stroke="currentColor" strokeWidth="2" />
+      <circle cx="18" cy="19" r="2.5" stroke="currentColor" strokeWidth="2" />
+      <path d="M8.2 10.7 15.8 6.3M8.2 13.3l7.6 4.4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function IconLink({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M9.5 14.5 14.5 9.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M11 7.5 12.4 6.1a3.5 3.5 0 1 1 5 5L16 12.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M13 16.5 11.6 17.9a3.5 3.5 0 1 1-5-5L8 11.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function IconX({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>

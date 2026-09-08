@@ -45,7 +45,7 @@ export default function Nav() {
     <header className="sticky top-0 z-40 border-b border-ink/10 bg-cream/95 backdrop-blur">
       <nav className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
         <Link href="/" className="flex items-center gap-2 font-display text-lg font-semibold text-ink">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-krachiao text-sm text-white">ห</span>
+          <Image src="/logo.png" alt="หิ้วชัยภูมิ" width={32} height={32} className="h-8 w-8 shrink-0 rounded-xl" priority />
           หิ้ว<span className="text-krachiao">ชัยภูมิ</span>
         </Link>
 

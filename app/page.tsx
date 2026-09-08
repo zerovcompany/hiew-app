@@ -3,24 +3,34 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
-import type { Shop, PromoBanner } from "@/lib/types";
+import type { Shop, PromoBanner, CarrierTrip } from "@/lib/types";
 import ShopCard from "@/components/ShopCard";
+import TripCard from "@/components/TripCard";
 import EmptyState from "@/components/EmptyState";
-import { SkeletonGrid } from "@/components/Skeleton";
+import { SkeletonGrid, SkeletonList } from "@/components/Skeleton";
 import { IconSearch, IconRoute, IconPlus } from "@/components/Icons";
 import BannerCarousel from "@/components/BannerCarousel";
+
+type HomeTab = "shops" | "trips";
 
 // ถ้าร้านในระบบยังมีไม่เยอะ ให้โชว์ "ร้านทั้งหมด" ก่อน (เรียงร้านใหม่สุดก่อน)
 // พอร้านเริ่มเยอะเกินเกณฑ์นี้ ค่อยสลับไปเรียงตาม "ยอดนิยม" (order_count) แทน
 const ALL_SHOPS_THRESHOLD = 12;
 
 export default function HomePage() {
+  const [activeTab, setActiveTab] = useState<HomeTab>("shops");
+
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string | null>(null);
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(true);
   const [showingAll, setShowingAll] = useState(true);
   const [banners, setBanners] = useState<PromoBanner[]>([]);
+
+  // แท็บ "เที่ยวหิ้ววันนี้" — โชว์เที่ยวหิ้วที่ยังเปิดรับออเดอร์อยู่และกำหนดส่งวันนี้
+  const [todayTrips, setTodayTrips] = useState<CarrierTrip[]>([]);
+  const [todayTripsLoading, setTodayTripsLoading] = useState(true);
+  const [todayTripsLoaded, setTodayTripsLoaded] = useState(false);
 
   // ป้ายโฆษณา/แบนเนอร์ที่แอดมินอัปโหลดไว้ — ดึงแยกจาก shops เพราะไม่ต้องรอ query ร้าน
   useEffect(() => {
@@ -31,6 +41,26 @@ export default function HomePage() {
       .order("sort_order", { ascending: true })
       .then(({ data }) => setBanners((data as PromoBanner[]) ?? []));
   }, []);
+
+  // โหลดเที่ยวหิ้ววันนี้แบบขี้เกียจ (lazy) — ดึงครั้งแรกที่ผู้ใช้กดแท็บนี้เท่านั้น ไม่ต้องรอตอนเปิดหน้าแรก
+  useEffect(() => {
+    if (activeTab !== "trips" || todayTripsLoaded) return;
+    const load = async () => {
+      setTodayTripsLoading(true);
+      const todayStr = new Date().toLocaleDateString("sv-SE"); // YYYY-MM-DD ตามเวลาเครื่อง
+      const { data, error } = await supabase
+        .from("carrier_trips")
+        .select("*, profiles(display_name, rating_avg), shops(name)")
+        .eq("status", "open")
+        .eq("delivery_date", todayStr)
+        .gte("order_cutoff_at", new Date().toISOString())
+        .order("order_cutoff_at", { ascending: true });
+      if (!error && data) setTodayTrips(data as unknown as CarrierTrip[]);
+      setTodayTripsLoading(false);
+      setTodayTripsLoaded(true);
+    };
+    load();
+  }, [activeTab, todayTripsLoaded]);
 
 
   useEffect(() => {
@@ -123,44 +153,87 @@ export default function HomePage() {
       </section>
 
       <div className="mx-auto max-w-5xl px-4">
-        {categories.length > 0 && (
-          <div className="-mx-4 mt-6 flex gap-2 overflow-x-auto px-4 pb-1">
-            <button className="chip" data-active={category === null} onClick={() => setCategory(null)}>
-              ทั้งหมด
-            </button>
-            {categories.map((c) => (
-              <button key={c} className="chip" data-active={category === c} onClick={() => setCategory(c)}>
-                {c}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* แท็บสลับระหว่าง "ร้านค้า" กับ "เที่ยวหิ้ววันนี้" */}
+        <div className="-mx-4 mt-6 flex gap-2 overflow-x-auto px-4 pb-1">
+          <button className="chip" data-active={activeTab === "shops"} onClick={() => setActiveTab("shops")}>
+            ร้านค้า
+          </button>
+          <button className="chip" data-active={activeTab === "trips"} onClick={() => setActiveTab("trips")}>
+            เที่ยวหิ้ววันนี้{todayTripsLoaded && todayTrips.length > 0 ? ` (${todayTrips.length})` : ""}
+          </button>
+        </div>
 
-        <section className="mt-6">
-          <h2 className="font-display text-xl text-ink">
-            {query ? `ผลการค้นหา "${query}"` : showingAll ? "ร้านทั้งหมด" : "ร้านยอดนิยม"}
-          </h2>
+        {activeTab === "shops" ? (
+          <>
+            {categories.length > 0 && (
+              <div className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1">
+                <button className="chip" data-active={category === null} onClick={() => setCategory(null)}>
+                  ทั้งหมด
+                </button>
+                {categories.map((c) => (
+                  <button key={c} className="chip" data-active={category === c} onClick={() => setCategory(c)}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+            )}
 
-          {loading ? (
-            <SkeletonGrid />
-          ) : shops.length === 0 ? (
-            <EmptyState
-              ticket={false}
-              title="ยังไม่มีร้านนี้ในระบบ — เป็นคนแรกที่เปิดรับหิ้วร้านนี้ไหม?"
-              action={
-                <Link href="/trips/new" className="btn-primary text-sm">
-                  เปิดรับหิ้ว
-                </Link>
-              }
-            />
-          ) : (
-            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-              {shops.map((shop) => (
-                <ShopCard key={shop.id} shop={shop} />
-              ))}
+            <section className="mt-6">
+              <h2 className="font-display text-xl text-ink">
+                {query ? `ผลการค้นหา "${query}"` : showingAll ? "ร้านทั้งหมด" : "ร้านยอดนิยม"}
+              </h2>
+
+              {loading ? (
+                <SkeletonGrid />
+              ) : shops.length === 0 ? (
+                <EmptyState
+                  ticket={false}
+                  title="ยังไม่มีร้านนี้ในระบบ — เป็นคนแรกที่เปิดรับหิ้วร้านนี้ไหม?"
+                  action={
+                    <Link href="/trips/new" className="btn-primary text-sm">
+                      เปิดรับหิ้ว
+                    </Link>
+                  }
+                />
+              ) : (
+                <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                  {shops.map((shop) => (
+                    <ShopCard key={shop.id} shop={shop} />
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
+        ) : (
+          <section className="mt-6">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-xl text-ink">เที่ยวหิ้วที่เปิดรับวันนี้</h2>
+              <Link href="/trips" className="text-sm text-krachiao underline">
+                ดูเที่ยวหิ้วทั้งหมด
+              </Link>
             </div>
-          )}
-        </section>
+
+            {todayTripsLoading ? (
+              <SkeletonList />
+            ) : todayTrips.length === 0 ? (
+              <EmptyState
+                ticket={false}
+                title="วันนี้ยังไม่มีใครเปิดรับหิ้ว — เป็นคนแรกไหม?"
+                action={
+                  <Link href="/trips/new" className="btn-primary text-sm">
+                    เปิดรับหิ้ว
+                  </Link>
+                }
+              />
+            ) : (
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {todayTrips.map((trip) => (
+                  <TripCard key={trip.id} trip={trip} />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
       </div>
     </main>
   );
