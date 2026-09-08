@@ -94,6 +94,11 @@ lib/supabase/
 ### Supabase
 รัน `new_requirements_migration.sql` หลัง migration เดิมทั้งหมด
 
+### Mock ร้านค้า (ไม่บังคับ)
+รัน `seed_korat_shops_migration.sql` ถ้าอยากใส่ร้านดังโคราชที่หิ้วง่ายไว้ล่วงหน้า (Krispy Kreme, Auntie Anne's,
+Rotiboy, Bake A Wish, BreadTalk, Cinnabon, Puff & Pie, ศรีวิไลเบเกอรี่, ขนมบ้านคุณแหม่ม, หมี่โคราช)
+รันได้กี่ครั้งก็ได้ ไม่ insert ซ้ำ ยังไม่มีรูป เข้าไปอัปโหลดรูปได้ทีหลังที่หน้า `/admin/shops`
+
 ### LINE Messaging API
 เพิ่ม `LINE_MESSAGING_CHANNEL_ACCESS_TOKEN` ใน `.env.local` จาก Messaging API channel ของ LINE Official Account
 ถ้าไม่ตั้งค่า ระบบยังใช้งานออเดอร์ได้ตามปกติ แต่จะข้ามการส่ง LINE notification
