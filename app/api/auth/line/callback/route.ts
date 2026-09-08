@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
           display_name: name,
           avatar_url: picture ?? null,
           line_friend: lineFriend,
-        });
+        , carrier_id: trip.carrier_id });
         // ถ้า insert ชนกับแถวที่เพิ่งถูกสร้างพร้อมกัน (race) หรือ trigger สร้างไปแล้วพอดี ไม่ต้อง throw
         if (insertErr && insertErr.code !== "23505") throw insertErr;
       }
