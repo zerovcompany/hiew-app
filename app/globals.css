@@ -116,6 +116,15 @@ h1, h2, h3, .font-display {
   padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
 }
 
+/* toast แจ้งเตือนหลังบันทึกสำเร็จ — เด้งขึ้นจากด้านล่างเบา ๆ */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-toast-in {
+  animation: toast-in 0.22s ease-out;
+}
+
 /* ลด motion ให้คนที่ตั้งค่า reduce motion ไว้ */
 @media (prefers-reduced-motion: reduce) {
   * {

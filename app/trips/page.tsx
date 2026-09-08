@@ -8,6 +8,7 @@ import TripCard from "@/components/TripCard";
 import EmptyState from "@/components/EmptyState";
 import { SkeletonList } from "@/components/Skeleton";
 import { IconSearch, IconChevronLeft, IconChevronRight } from "@/components/Icons";
+import DateFilterPicker from "@/components/DateFilterPicker";
 import Link from "next/link";
 
 const PAGE_SIZE = 10;
@@ -124,13 +125,7 @@ function TripsPageInner() {
           />
         </div>
 
-        <input
-          type="date"
-          value={dateFilter}
-          onChange={(e) => setDateFilter(e.target.value)}
-          className="field w-auto text-sm sm:w-auto"
-          aria-label="กรองวันที่ส่ง"
-        />
+        <DateFilterPicker value={dateFilter} onChange={setDateFilter} />
 
         <select
           value={priceSort}

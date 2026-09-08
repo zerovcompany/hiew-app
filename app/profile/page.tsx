@@ -9,9 +9,11 @@ import type { Profile } from "@/lib/types";
 import { IconShieldCheck, IconLogout } from "@/components/Icons";
 import MapPicker from "@/components/MapPicker";
 import type { BuyerAddress } from "@/lib/types";
+import { useToast } from "@/lib/toast";
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileMissing, setProfileMissing] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
@@ -97,7 +99,12 @@ export default function ProfilePage() {
     if (!profile) return;
     const updated = { ...profile, [field]: !profile[field] };
     setProfile(updated);
-    await supabase.from("profiles").update({ [field]: updated[field] }).eq("id", profile.id);
+    const { error } = await supabase.from("profiles").update({ [field]: updated[field] }).eq("id", profile.id);
+    if (error) {
+      showToast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง", "error");
+    } else {
+      showToast(updated[field] ? "เปิดใช้งานแล้ว ✓" : "ปิดใช้งานแล้ว ✓");
+    }
   };
 
   const handleSavePromptPay = async (e: React.FormEvent) => {
@@ -114,6 +121,9 @@ export default function ProfilePage() {
     if (!error) {
       setProfile({ ...profile, promptpay_id: cleaned || null });
       setPromptPaySaved(true);
+      showToast("บันทึกพร้อมเพย์แล้ว ✓");
+    } else {
+      showToast("บันทึกพร้อมเพย์ไม่สำเร็จ ลองใหม่อีกครั้ง", "error");
     }
   };
 
@@ -125,7 +135,13 @@ export default function ProfilePage() {
     setSavingPhone(true);
     const { error } = await supabase.from("profiles").update({ phone }).eq("id", profile?.id);
     setSavingPhone(false);
-    if (!error && profile) { setProfile({ ...profile, phone }); setAddressPhone(phone); }
+    if (!error && profile) {
+      setProfile({ ...profile, phone });
+      setAddressPhone(phone);
+      showToast("บันทึกเบอร์โทรแล้ว ✓");
+    } else {
+      showToast("บันทึกเบอร์โทรไม่สำเร็จ ลองใหม่อีกครั้ง", "error");
+    }
   };
 
   const handleSaveAddress = async (e: React.FormEvent) => {
@@ -134,17 +150,35 @@ export default function ProfilePage() {
     setSavingAddress(true);
     const { data, error } = await supabase.from("buyer_addresses").insert({ profile_id: profile.id, label: addressLabel.trim() || "บ้าน", recipient_name: recipientName.trim(), phone: addressPhone.replace(/\D/g, ""), address_text: addressText.trim(), latitude: addressLat, longitude: addressLng, is_default: addresses.length === 0 }).select().single();
     setSavingAddress(false);
-    if (!error && data) { setAddresses((prev) => [data as BuyerAddress, ...prev.map((a) => ({ ...a, is_default: data.is_default ? false : a.is_default }))]); setAddressText(""); setAddressLat(null); setAddressLng(null); }
+    if (!error && data) {
+      setAddresses((prev) => [data as BuyerAddress, ...prev.map((a) => ({ ...a, is_default: data.is_default ? false : a.is_default }))]);
+      setAddressText("");
+      setAddressLat(null);
+      setAddressLng(null);
+      showToast("บันทึกที่อยู่แล้ว ✓");
+    } else {
+      showToast("บันทึกที่อยู่ไม่สำเร็จ ลองใหม่อีกครั้ง", "error");
+    }
   };
 
   const makeDefaultAddress = async (id: string) => {
-    await supabase.from("buyer_addresses").update({ is_default: true }).eq("id", id);
+    const { error } = await supabase.from("buyer_addresses").update({ is_default: true }).eq("id", id);
+    if (error) {
+      showToast("ตั้งที่อยู่เริ่มต้นไม่สำเร็จ", "error");
+      return;
+    }
     setAddresses((prev) => prev.map((a) => ({ ...a, is_default: a.id === id })));
+    showToast("ตั้งเป็นที่อยู่เริ่มต้นแล้ว ✓");
   };
 
   const deleteAddress = async (id: string) => {
-    await supabase.from("buyer_addresses").delete().eq("id", id);
+    const { error } = await supabase.from("buyer_addresses").delete().eq("id", id);
+    if (error) {
+      showToast("ลบที่อยู่ไม่สำเร็จ", "error");
+      return;
+    }
     setAddresses((prev) => prev.filter((a) => a.id !== id));
+    showToast("ลบที่อยู่แล้ว ✓");
   };
 
   const toggleLine = async () => {
@@ -154,7 +188,12 @@ export default function ProfilePage() {
     const next = !lineEnabled;
     const { error } = await supabase.from("line_notification_preferences").upsert({ profile_id: profile.id, enabled: next }, { onConflict: "profile_id" });
     setSavingLine(false);
-    if (!error) setLineEnabled(next);
+    if (!error) {
+      setLineEnabled(next);
+      showToast(next ? "เปิดแจ้งเตือนแล้ว ✓" : "ปิดแจ้งเตือนแล้ว ✓");
+    } else {
+      showToast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง", "error");
+    }
   };
 
   const refreshLineFriendship = () => {
@@ -221,9 +260,11 @@ export default function ProfilePage() {
     setUploading(false);
     if (error) {
       setUploadMsg("บันทึกคำขอไม่สำเร็จ ลองใหม่อีกครั้ง");
+      showToast("ส่งคำขอยืนยันตัวตนไม่สำเร็จ", "error");
     } else {
       setVerificationStatus("pending");
       setUploadMsg(null);
+      showToast("ส่งคำขอยืนยันตัวตนแล้ว ✓");
     }
   };
 
