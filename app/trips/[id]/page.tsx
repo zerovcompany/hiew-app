@@ -194,16 +194,16 @@ export default function TripDetailPage() {
 
     setSubmitting(true);
     
-// 🔥 FIX: fetch carrier_id from carrier_trips ก่อน
+// 🔥 FINAL FIX: ดึง carrier + fee ก่อนแล้วค่อยสร้าง order
 const { data: tripData, error: tripError } = await supabase
   .from("carrier_trips")
-  .select("carrier_id")
+  .select("carrier_id, service_fee")
   .eq("id", trip.id)
   .single();
 
 if (tripError || !tripData) {
   console.error("trip error:", tripError);
-  alert("โหลด trip ไม่ได้ ❌");
+  alert("โหลดข้อมูลทริปไม่สำเร็จ ❌");
   return;
 }
 
@@ -213,6 +213,7 @@ const { data: newOrder, error } = await supabase
     trip_id: trip.id,
     buyer_id: user.id,
     carrier_id: tripData.carrier_id,
+    service_fee_snapshot: tripData.service_fee,
     item_description: itemDescription,
     quantity,
   })
@@ -221,6 +222,12 @@ const { data: newOrder, error } = await supabase
 
 console.log("ORDER RESULT:", newOrder);
 console.log("ORDER ERROR:", error);
+
+if (error) {
+  alert("สร้างออเดอร์ไม่สำเร็จ ❌");
+} else {
+  alert("สั่งออเดอร์เรียบร้อยแล้ว ✅");
+}
 
     setSubmitting(false);
 
