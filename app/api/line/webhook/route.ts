@@ -3,9 +3,16 @@ import crypto from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 function verifySignature(body: string, signature: string | null) {
-  if (!signature || !process.env.LINE_CHANNEL_SECRET) return false;
-  const digest = crypto.createHmac("sha256", process.env.LINE_CHANNEL_SECRET).update(body).digest("base64");
-  return crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature));
+  // สำคัญ: webhook นี้มาจาก LINE Official Account (Messaging API channel)
+  // ซึ่งเป็นคนละ channel กับ LINE Login channel ที่ใช้ตอน login (คนละ channel secret กัน)
+  // เดิมโค้ดเคยใช้ LINE_CHANNEL_SECRET (secret ของ Login channel) ตรวจลายเซ็น ทำให้ verify ไม่ผ่านเสมอ (401)
+  const secret = process.env.LINE_MESSAGING_CHANNEL_SECRET;
+  if (!signature || !secret) return false;
+  const digestBuf = crypto.createHmac("sha256", secret).update(body).digest();
+  const signatureBuf = Buffer.from(signature, "base64");
+  // ต้องเช็คความยาวก่อน ไม่งั้น timingSafeEqual จะ throw แทนที่จะ return false เมื่อความยาวไม่เท่ากัน
+  if (digestBuf.length !== signatureBuf.length) return false;
+  return crypto.timingSafeEqual(digestBuf, signatureBuf);
 }
 
 export async function POST(req: NextRequest) {
