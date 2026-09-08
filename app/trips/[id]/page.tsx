@@ -81,13 +81,18 @@ export default function TripDetailPage() {
       setLoading(false);
 
       // ถ้าเป็นเจ้าของเที่ยวหิ้วนี้ ให้โหลดรายการออเดอร์ที่มีคนสั่งเข้ามาด้วย
+      console.log("[hiew] trip loaded:", loadedTrip?.id, "carrier_id:", loadedTrip?.carrier_id, "currentUser:", currentUser?.id);
       if (loadedTrip && currentUser && loadedTrip.carrier_id === currentUser.id) {
         setSellOrdersLoading(true);
-        const { data: orders } = await supabase
+        const { data: orders, error: sellOrdersError } = await supabase
           .from("orders")
           .select("*, profiles(display_name, phone)")
           .eq("trip_id", id)
           .order("created_at", { ascending: false });
+        if (sellOrdersError) {
+          console.error("[hiew] sellOrders query error (มักเกิดจาก RLS ไม่อนุญาต):", sellOrdersError);
+        }
+        console.log("[hiew] sellOrders rows:", orders?.length ?? 0, orders);
         setSellOrders((orders as unknown as SellOrderRow[]) ?? []);
         setSellOrdersLoading(false);
       }
@@ -214,6 +219,7 @@ export default function TripDetailPage() {
         trip_id: trip.id,
         buyer_id: user.id,
         carrier_id: tripData.carrier_id,
+        menu_item_id: selectedMenuId !== "custom" ? selectedMenuId : null,
         service_fee_snapshot: tripData.service_fee,
         item_description: itemDescription,
         quantity,

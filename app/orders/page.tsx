@@ -77,20 +77,25 @@ function OrdersHubInner() {
       setBuyOrders((orders as unknown as OrderRow[]) ?? []);
       setBuyLoading(false);
 
-      const { data: tripData } = await supabase
+      console.log("[hiew] current uid:", uid);
+      const { data: tripData, error: tripListError } = await supabase
         .from("carrier_trips")
         .select("*")
         .eq("carrier_id", uid)
         .order("delivery_date", { ascending: false });
+      if (tripListError) console.error("[hiew] trip list error:", tripListError);
       const tripList = (tripData as CarrierTrip[]) ?? [];
+      console.log("[hiew] my trips (as carrier):", tripList.length, tripList.map((t) => t.id));
       setTrips(tripList);
       await Promise.all(
         tripList.map(async (t) => {
-          const { data } = await supabase
+          const { data, error: sellOrdersError } = await supabase
             .from("orders")
             .select("*, profiles(display_name)")
             .eq("trip_id", t.id)
             .order("created_at");
+          if (sellOrdersError) console.error(`[hiew] orders for trip ${t.id} error:`, sellOrdersError);
+          console.log(`[hiew] orders for trip ${t.id}:`, data?.length ?? 0, data);
           setOrdersByTrip((prev) => ({ ...prev, [t.id]: (data as unknown as SellOrderRow[]) ?? [] }));
         })
       );

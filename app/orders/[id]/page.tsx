@@ -69,7 +69,9 @@ export default function OrderDetailPage() {
         return;
       }
 
-      const { data: orderData } = await supabase.from("orders").select("*").eq("id", id).maybeSingle();
+      const { data: orderData, error: orderFetchError } = await supabase.from("orders").select("*").eq("id", id).maybeSingle();
+      if (orderFetchError) console.error("[hiew] order fetch error:", orderFetchError);
+      console.log("[hiew] order fetch result:", orderData);
       if (!orderData) {
         setNotFound(true);
         setLoading(false);
