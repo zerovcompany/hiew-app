@@ -214,7 +214,7 @@ export default function TripDetailPage() {
         delivery_postal_code: selectedAddress.postal_code,
         delivery_latitude: selectedAddress.latitude,
         delivery_longitude: selectedAddress.longitude,
-      , carrier_id: trip.carrier_id })
+      })
       .select()
       .single();
     setSubmitting(false);

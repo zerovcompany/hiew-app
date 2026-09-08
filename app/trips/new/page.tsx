@@ -111,7 +111,7 @@ export default function NewTripPage() {
       } else {
         const { data: newShop, error: shopErr } = await supabase
           .from("shops")
-          .insert({ name: trimmedShopName , carrier_id: trip.carrier_id })
+          .insert({ name: trimmedShopName })
           .select("id")
           .single();
         if (!shopErr && newShop) shopId = newShop.id;
@@ -133,7 +133,7 @@ export default function NewTripPage() {
         service_fee: Number(serviceFee),
         fee_type: feeType,
         max_orders: maxOrders ? Number(maxOrders) : null,
-      , carrier_id: trip.carrier_id })
+      })
       .select()
       .single();
 

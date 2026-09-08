@@ -64,7 +64,6 @@ export default function ProfilePage() {
       }
 
       setProfile(data as Profile);
-alert('บันทึกเรียบร้อยแล้ว ✅');
       setLineFriend((data as Profile).line_friend === true);
       setPromptPayInput((data as Profile).promptpay_id ?? "");
       setPhoneInput((data as Profile).phone ?? "");
@@ -98,7 +97,6 @@ alert('บันทึกเรียบร้อยแล้ว ✅');
     if (!profile) return;
     const updated = { ...profile, [field]: !profile[field] };
     setProfile(updated);
-alert('บันทึกเรียบร้อยแล้ว ✅');
     await supabase.from("profiles").update({ [field]: updated[field] }).eq("id", profile.id);
   };
 
@@ -115,7 +113,6 @@ alert('บันทึกเรียบร้อยแล้ว ✅');
     setSavingPromptPay(false);
     if (!error) {
       setProfile({ ...profile, promptpay_id: cleaned || null });
-alert('บันทึกเรียบร้อยแล้ว ✅');
       setPromptPaySaved(true);
     }
   };
@@ -128,15 +125,14 @@ alert('บันทึกเรียบร้อยแล้ว ✅');
     setSavingPhone(true);
     const { error } = await supabase.from("profiles").update({ phone }).eq("id", profile?.id);
     setSavingPhone(false);
-    if (!error && profile) { setProfile({ ...profile, phone });
-alert('บันทึกเรียบร้อยแล้ว ✅'); setAddressPhone(phone); }
+    if (!error && profile) { setProfile({ ...profile, phone }); setAddressPhone(phone); }
   };
 
   const handleSaveAddress = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile || !recipientName.trim() || !addressPhone.trim() || !addressText.trim() || addressLat == null || addressLng == null) return;
     setSavingAddress(true);
-    const { data, error } = await supabase.from("buyer_addresses").insert({ profile_id: profile.id, label: addressLabel.trim() || "บ้าน", recipient_name: recipientName.trim(), phone: addressPhone.replace(/\D/g, ""), address_text: addressText.trim(), latitude: addressLat, longitude: addressLng, is_default: addresses.length === 0 , carrier_id: trip.carrier_id }).select().single();
+    const { data, error } = await supabase.from("buyer_addresses").insert({ profile_id: profile.id, label: addressLabel.trim() || "บ้าน", recipient_name: recipientName.trim(), phone: addressPhone.replace(/\D/g, ""), address_text: addressText.trim(), latitude: addressLat, longitude: addressLng, is_default: addresses.length === 0 }).select().single();
     setSavingAddress(false);
     if (!error && data) { setAddresses((prev) => [data as BuyerAddress, ...prev.map((a) => ({ ...a, is_default: data.is_default ? false : a.is_default }))]); setAddressText(""); setAddressLat(null); setAddressLng(null); }
   };
@@ -220,7 +216,7 @@ alert('บันทึกเรียบร้อยแล้ว ✅'); setAddre
       profile_id: profile.id,
       id_card_image_url: idCardPath,
       selfie_with_id_url: selfiePath,
-    , carrier_id: trip.carrier_id });
+    });
 
     setUploading(false);
     if (error) {
