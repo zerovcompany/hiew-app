@@ -155,6 +155,15 @@ export function IconPaperclip({ className = base }: IconProps) {
   );
 }
 
+export function IconCopy({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <rect x="9" y="9" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="2" />
+      <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function IconEmptyBox({ className = "h-14 w-14" }: IconProps) {
   return (
     <svg viewBox="0 0 64 64" fill="none" className={className}>

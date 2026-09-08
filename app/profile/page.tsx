@@ -10,6 +10,7 @@ import { IconShieldCheck, IconLogout } from "@/components/Icons";
 import MapPicker from "@/components/MapPicker";
 import type { BuyerAddress } from "@/lib/types";
 import { useToast } from "@/lib/toast";
+import { THAI_BANKS } from "@/lib/banks";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -27,6 +28,11 @@ export default function ProfilePage() {
   const [promptPayInput, setPromptPayInput] = useState("");
   const [savingPromptPay, setSavingPromptPay] = useState(false);
   const [promptPaySaved, setPromptPaySaved] = useState(false);
+  const [bankCodeInput, setBankCodeInput] = useState("");
+  const [bankAccountNumberInput, setBankAccountNumberInput] = useState("");
+  const [bankAccountNameInput, setBankAccountNameInput] = useState("");
+  const [savingBankAccount, setSavingBankAccount] = useState(false);
+  const [bankAccountSaved, setBankAccountSaved] = useState(false);
   const [phoneInput, setPhoneInput] = useState("");
   const [savingPhone, setSavingPhone] = useState(false);
   const [addresses, setAddresses] = useState<BuyerAddress[]>([]);
@@ -68,6 +74,9 @@ export default function ProfilePage() {
       setProfile(data as Profile);
       setLineFriend((data as Profile).line_friend === true);
       setPromptPayInput((data as Profile).promptpay_id ?? "");
+      setBankCodeInput((data as Profile).bank_code ?? "");
+      setBankAccountNumberInput((data as Profile).bank_account_number ?? "");
+      setBankAccountNameInput((data as Profile).bank_account_name ?? (data as Profile).display_name ?? "");
       setPhoneInput((data as Profile).phone ?? "");
       setAddressPhone((data as Profile).phone ?? "");
       setRecipientName((data as Profile).display_name ?? "");
@@ -124,6 +133,39 @@ export default function ProfilePage() {
       showToast("บันทึกพร้อมเพย์แล้ว ✓");
     } else {
       showToast("บันทึกพร้อมเพย์ไม่สำเร็จ ลองใหม่อีกครั้ง", "error");
+    }
+  };
+
+  const handleSaveBankAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile) return;
+    const bankCode = bankCodeInput.trim();
+    const accountNumber = bankAccountNumberInput.replace(/[^0-9]/g, "");
+    const accountName = bankAccountNameInput.trim();
+
+    // ถ้าจะบันทึกเลขบัญชี ต้องกรอกครบทั้งธนาคาร / เลขบัญชี / ชื่อบัญชี ไม่งั้นคนซื้อโอนแล้วตรวจสอบไม่ได้
+    if ((bankCode || accountNumber || accountName) && (!bankCode || !accountNumber || !accountName)) {
+      showToast("กรุณากรอกให้ครบทั้งธนาคาร เลขบัญชี และชื่อบัญชี", "error");
+      return;
+    }
+
+    setSavingBankAccount(true);
+    setBankAccountSaved(false);
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        bank_code: bankCode || null,
+        bank_account_number: accountNumber || null,
+        bank_account_name: accountName || null,
+      })
+      .eq("id", profile.id);
+    setSavingBankAccount(false);
+    if (!error) {
+      setProfile({ ...profile, bank_code: bankCode || null, bank_account_number: accountNumber || null, bank_account_name: accountName || null });
+      setBankAccountSaved(true);
+      showToast("บันทึกบัญชีธนาคารแล้ว ✓");
+    } else {
+      showToast("บันทึกบัญชีธนาคารไม่สำเร็จ ลองใหม่อีกครั้ง", "error");
     }
   };
 
@@ -427,6 +469,53 @@ export default function ProfilePage() {
             {promptPaySaved && <p className="text-sm text-emerald-700">บันทึกแล้ว ✓</p>}
             <button type="submit" disabled={savingPromptPay} className="btn-secondary w-full">
               {savingPromptPay ? "กำลังบันทึก..." : "บันทึกพร้อมเพย์"}
+            </button>
+          </form>
+        </section>
+      )}
+
+      {profile.is_carrier && (
+        <section className="mt-6">
+          <h2 className="font-display text-lg text-ink">บัญชีธนาคารรับเงิน</h2>
+          <p className="mt-1 text-sm text-ink/60">
+            สำหรับคนซื้อที่อยากโอนเข้าเลขบัญชีแทนพร้อมเพย์ กรอกให้ครบเพื่อให้คนซื้อตรวจสอบชื่อบัญชีก่อนโอนได้
+          </p>
+          <form onSubmit={handleSaveBankAccount} className="surface-card mt-3 space-y-3 p-4">
+            <div>
+              <label className="field-label">ธนาคาร</label>
+              <select
+                value={bankCodeInput}
+                onChange={(e) => { setBankCodeInput(e.target.value); setBankAccountSaved(false); }}
+                className="field"
+              >
+                <option value="">เลือกธนาคาร</option>
+                {THAI_BANKS.map((b) => (
+                  <option key={b.code} value={b.code}>{b.name} ({b.shortName})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="field-label">เลขที่บัญชี</label>
+              <input
+                value={bankAccountNumberInput}
+                onChange={(e) => { setBankAccountNumberInput(e.target.value); setBankAccountSaved(false); }}
+                placeholder="เช่น 1234567890"
+                className="field"
+                inputMode="numeric"
+              />
+            </div>
+            <div>
+              <label className="field-label">ชื่อบัญชี</label>
+              <input
+                value={bankAccountNameInput}
+                onChange={(e) => { setBankAccountNameInput(e.target.value); setBankAccountSaved(false); }}
+                placeholder="ชื่อ-นามสกุล ตามหน้าสมุดบัญชี"
+                className="field"
+              />
+            </div>
+            {bankAccountSaved && <p className="text-sm text-emerald-700">บันทึกแล้ว ✓</p>}
+            <button type="submit" disabled={savingBankAccount} className="btn-secondary w-full">
+              {savingBankAccount ? "กำลังบันทึก..." : "บันทึกบัญชีธนาคาร"}
             </button>
           </form>
         </section>

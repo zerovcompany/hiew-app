@@ -6,6 +6,9 @@ export type Profile = {
   avatar_url: string | null;
   phone: string | null;
   promptpay_id: string | null;
+  bank_code: string | null;
+  bank_account_number: string | null;
+  bank_account_name: string | null;
   is_buyer: boolean;
   is_carrier: boolean;
   carrier_verified: boolean;
@@ -90,6 +93,7 @@ export type OrderStatus =
 
 export type PaymentMethod = "pay_now" | "pay_on_delivery";
 export type PaymentStatus = "unpaid" | "paid";
+export type PaymentChannel = "promptpay" | "bank_account";
 
 export type Order = {
   id: string;
@@ -103,6 +107,7 @@ export type Order = {
   status: OrderStatus;
   payment_method: PaymentMethod;
   payment_status: PaymentStatus;
+  payment_channel: PaymentChannel | null;
   payment_slip_url: string | null;
   buyer_note: string | null;
   created_at: string;

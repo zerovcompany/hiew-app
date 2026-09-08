@@ -8,7 +8,9 @@ import type { CarrierTrip, Order, OrderStatus, Profile } from "@/lib/types";
 import type { User } from "@supabase/supabase-js";
 import StatusBadge from "@/components/StatusBadge";
 import { SkeletonCard } from "@/components/Skeleton";
-import { IconArrowLeft, IconPaperclip } from "@/components/Icons";
+import { IconArrowLeft, IconPaperclip, IconCopy } from "@/components/Icons";
+import { bankNameByCode } from "@/lib/banks";
+import { useToast } from "@/lib/toast";
 
 const nextStatus: Record<string, OrderStatus | null> = {
   pending: "confirmed",
@@ -34,6 +36,7 @@ const statusSteps: OrderStatus[] = ["pending", "confirmed", "purchased", "delive
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { showToast } = useToast();
 
   const [user, setUser] = useState<User | null>(null);
   const [order, setOrder] = useState<Order | null>(null);
@@ -81,7 +84,7 @@ export default function OrderDetailPage() {
 
       const { data: tripData } = await supabase
         .from("carrier_trips")
-        .select("*, profiles(display_name, phone, promptpay_id, rating_avg, rating_count)")
+        .select("*, profiles(display_name, phone, promptpay_id, bank_code, bank_account_number, bank_account_name, rating_avg, rating_count)")
         .eq("id", loadedOrder.trip_id)
         .maybeSingle();
       const loadedTrip = tripData as unknown as CarrierTrip;
@@ -328,6 +331,44 @@ export default function OrderDetailPage() {
           <span>{paymentLabel[order.payment_method] ?? "จ่ายตอนรับของ"}</span>
         </div>
       </div>
+
+      {/* ช่องทางโอนเงินที่เลือก */}
+      {order.payment_method === "pay_now" && order.payment_channel === "bank_account" && trip?.profiles?.bank_account_number && (
+        <div className="mt-4 ticket-card p-4">
+          <h2 className="font-display text-base text-ink">โอนเข้าบัญชีธนาคาร</h2>
+          <div className="mt-3 space-y-1.5 rounded-lg bg-cream p-3 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-ink/50">ธนาคาร</span>
+              <span className="font-medium text-ink">{bankNameByCode(trip.profiles.bank_code)}</span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="shrink-0 text-ink/50">เลขบัญชี</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium tracking-wide text-ink">{trip.profiles.bank_account_number}</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(trip.profiles!.bank_account_number!);
+                      showToast("คัดลอกเลขบัญชีแล้ว ✓");
+                    } catch {
+                      showToast("คัดลอกไม่สำเร็จ ลองคัดลอกเองแทน", "error");
+                    }
+                  }}
+                  className="focus-ring rounded-full p-1 text-krachiao hover:bg-krachiao/10"
+                  aria-label="คัดลอกเลขบัญชี"
+                >
+                  <IconCopy className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-ink/50">ชื่อบัญชี</span>
+              <span className="font-medium text-ink">{trip.profiles.bank_account_name}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* สลิปโอนเงิน */}
       {order.payment_method === "pay_now" && (

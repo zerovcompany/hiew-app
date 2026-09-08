@@ -9,8 +9,10 @@ import type { CarrierTrip, Order, PaymentMethod, TripMenuItem } from "@/lib/type
 import type { User } from "@supabase/supabase-js";
 import { SkeletonCard } from "@/components/Skeleton";
 import StatusBadge from "@/components/StatusBadge";
-import { IconTrash, IconPaperclip } from "@/components/Icons";
-import type { BuyerAddress } from "@/lib/types";
+import { IconTrash, IconPaperclip, IconCopy } from "@/components/Icons";
+import type { BuyerAddress, PaymentChannel } from "@/lib/types";
+import { bankNameByCode } from "@/lib/banks";
+import { useToast } from "@/lib/toast";
 
 type SellOrderRow = Order & { profiles?: { display_name: string; phone: string | null } };
 
@@ -22,6 +24,7 @@ const paymentLabelMap: Record<string, string> = {
 export default function TripDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { showToast } = useToast();
 
   const [trip, setTrip] = useState<CarrierTrip | null>(null);
   const [menuItems, setMenuItems] = useState<TripMenuItem[]>([]);
@@ -35,6 +38,7 @@ export default function TripDetailPage() {
   const [itemPrice, setItemPrice] = useState<string>("");
   const [buyerNote, setBuyerNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("pay_on_delivery");
+  const [paymentChannel, setPaymentChannel] = useState<PaymentChannel>("promptpay");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
@@ -67,7 +71,7 @@ export default function TripDetailPage() {
 
       const { data: tripData } = await supabase
         .from("carrier_trips")
-        .select("*, profiles(display_name, rating_avg, rating_count, avatar_url, promptpay_id), shops(name)")
+        .select("*, profiles(display_name, rating_avg, rating_count, avatar_url, promptpay_id, bank_code, bank_account_number, bank_account_name), shops(name)")
         .eq("id", id)
         .maybeSingle();
       const loadedTrip = tripData as unknown as CarrierTrip;
@@ -180,6 +184,35 @@ export default function TripDetailPage() {
     ? `https://promptpay.io/${carrierPromptPay}/${priceBreakdown.total.toFixed(2)}.png`
     : null;
 
+  const carrierBankAccount =
+    trip?.profiles?.bank_code && trip?.profiles?.bank_account_number && trip?.profiles?.bank_account_name
+      ? {
+          bankCode: trip.profiles.bank_code,
+          bankName: bankNameByCode(trip.profiles.bank_code),
+          accountNumber: trip.profiles.bank_account_number,
+          accountName: trip.profiles.bank_account_name,
+        }
+      : null;
+
+  const hasAnyPayNowChannel = !!carrierPromptPay || !!carrierBankAccount;
+
+  // ถ้าคนหิ้วไม่มีพร้อมเพย์แต่มีเลขบัญชี ให้เลือกเลขบัญชีเป็นค่าเริ่มต้นแทน
+  useEffect(() => {
+    if (!carrierPromptPay && carrierBankAccount) setPaymentChannel("bank_account");
+    else if (carrierPromptPay) setPaymentChannel("promptpay");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carrierPromptPay, !!carrierBankAccount]);
+
+  const copyAccountNumber = async () => {
+    if (!carrierBankAccount) return;
+    try {
+      await navigator.clipboard.writeText(carrierBankAccount.accountNumber);
+      showToast("คัดลอกเลขบัญชีแล้ว ✓");
+    } catch {
+      showToast("คัดลอกไม่สำเร็จ ลองคัดลอกเองแทน", "error");
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -192,8 +225,16 @@ export default function TripDetailPage() {
     if (!itemDescription.trim()) { setFormError("กรุณาระบุสินค้าที่ต้องการสั่ง"); return; }
     const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
     if (!selectedAddress) { setFormError("กรุณาเพิ่มและเลือกที่อยู่จัดส่งก่อนสั่งออเดอร์"); return; }
-    if (paymentMethod === "pay_now" && !carrierPromptPay) {
-      setFormError("คนหิ้วยังไม่ได้ตั้งค่าพร้อมเพย์ กรุณาเลือก \"จ่ายตอนรับของ\" แทน");
+    if (paymentMethod === "pay_now" && !hasAnyPayNowChannel) {
+      setFormError("คนหิ้วยังไม่ได้ตั้งค่าพร้อมเพย์หรือบัญชีธนาคาร กรุณาเลือก \"จ่ายตอนรับของ\" แทน");
+      return;
+    }
+    if (paymentMethod === "pay_now" && paymentChannel === "promptpay" && !carrierPromptPay) {
+      setFormError("คนหิ้วยังไม่ได้ตั้งค่าพร้อมเพย์ กรุณาเลือกโอนเข้าบัญชีธนาคารแทน");
+      return;
+    }
+    if (paymentMethod === "pay_now" && paymentChannel === "bank_account" && !carrierBankAccount) {
+      setFormError("คนหิ้วยังไม่ได้ตั้งค่าบัญชีธนาคาร กรุณาเลือกพร้อมเพย์แทน");
       return;
     }
 
@@ -226,6 +267,7 @@ export default function TripDetailPage() {
         item_price: itemPrice ? Number(itemPrice) : null,
         buyer_note: buyerNote.trim() ? buyerNote.trim() : null,
         payment_method: paymentMethod,
+        payment_channel: paymentMethod === "pay_now" ? paymentChannel : null,
         delivery_name: selectedAddress.recipient_name,
         delivery_phone: selectedAddress.phone,
         delivery_address: selectedAddress.address_text,
@@ -548,27 +590,97 @@ export default function TripDetailPage() {
               </div>
 
               {paymentMethod === "pay_now" && (
-                <div className="mt-3 rounded-xl bg-cream p-4 text-center">
-                  {carrierPromptPay ? (
+                <div className="mt-3">
+                  {hasAnyPayNowChannel ? (
                     <>
-                      <p className="text-sm text-ink/70">สแกนเพื่อโอนให้คนหิ้ว</p>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={promptPayQrUrl!}
-                        alt={`พร้อมเพย์ QR ยอด ${priceBreakdown.total.toFixed(0)} บาท`}
-                        className="mx-auto mt-2 h-44 w-44 rounded-lg bg-white p-2 shadow-sm"
-                      />
-                      <p className="mt-2 font-display text-lg text-krachiao">
-                        {priceBreakdown.total.toFixed(0)} บาท
-                      </p>
-                      <p className="mt-1 text-xs text-ink/45">
-                        พร้อมเพย์: {trip.profiles?.promptpay_id} · แคปหน้าจอสลิปเก็บไว้เป็นหลักฐาน
-                      </p>
+                      {/* เลือกช่องทางโอน ถ้าคนหิ้วตั้งค่าไว้มากกว่า 1 ช่องทาง */}
+                      {carrierPromptPay && carrierBankAccount && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPaymentChannel("promptpay")}
+                            className={`focus-ring rounded-xl border p-2.5 text-center text-xs font-medium transition-colors ${
+                              paymentChannel === "promptpay"
+                                ? "border-krachiao bg-krachiao/5 text-ink"
+                                : "border-ink/15 text-ink/60 hover:bg-ink/5"
+                            }`}
+                          >
+                            พร้อมเพย์
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPaymentChannel("bank_account")}
+                            className={`focus-ring rounded-xl border p-2.5 text-center text-xs font-medium transition-colors ${
+                              paymentChannel === "bank_account"
+                                ? "border-krachiao bg-krachiao/5 text-ink"
+                                : "border-ink/15 text-ink/60 hover:bg-ink/5"
+                            }`}
+                          >
+                            โอนเข้าบัญชีธนาคาร
+                          </button>
+                        </div>
+                      )}
+
+                      {paymentChannel === "promptpay" && carrierPromptPay && (
+                        <div className="mt-3 rounded-xl bg-cream p-4 text-center">
+                          <p className="text-sm text-ink/70">สแกนเพื่อโอนให้คนหิ้ว</p>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={promptPayQrUrl!}
+                            alt={`พร้อมเพย์ QR ยอด ${priceBreakdown.total.toFixed(0)} บาท`}
+                            className="mx-auto mt-2 h-44 w-44 rounded-lg bg-white p-2 shadow-sm"
+                          />
+                          <p className="mt-2 font-display text-lg text-krachiao">
+                            {priceBreakdown.total.toFixed(0)} บาท
+                          </p>
+                          <p className="mt-1 text-xs text-ink/45">
+                            พร้อมเพย์: {trip.profiles?.promptpay_id} · แคปหน้าจอสลิปเก็บไว้เป็นหลักฐาน
+                          </p>
+                        </div>
+                      )}
+
+                      {paymentChannel === "bank_account" && carrierBankAccount && (
+                        <div className="mt-3 rounded-xl bg-cream p-4">
+                          <p className="text-center text-sm text-ink/70">โอนเข้าบัญชีนี้ให้คนหิ้ว</p>
+                          <p className="mt-2 text-center font-display text-lg text-krachiao">
+                            {priceBreakdown.total.toFixed(0)} บาท
+                          </p>
+                          <div className="mt-3 space-y-1.5 rounded-lg bg-white p-3 text-sm shadow-sm">
+                            <div className="flex items-center justify-between">
+                              <span className="text-ink/50">ธนาคาร</span>
+                              <span className="font-medium text-ink">{carrierBankAccount.bankName}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="shrink-0 text-ink/50">เลขบัญชี</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-medium tracking-wide text-ink">{carrierBankAccount.accountNumber}</span>
+                                <button
+                                  type="button"
+                                  onClick={copyAccountNumber}
+                                  className="focus-ring rounded-full p-1 text-krachiao hover:bg-krachiao/10"
+                                  aria-label="คัดลอกเลขบัญชี"
+                                >
+                                  <IconCopy className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-ink/50">ชื่อบัญชี</span>
+                              <span className="font-medium text-ink">{carrierBankAccount.accountName}</span>
+                            </div>
+                          </div>
+                          <p className="mt-2 text-center text-xs text-ink/45">
+                            ตรวจสอบชื่อบัญชีให้ตรงก่อนโอน · แคปหน้าจอสลิปเก็บไว้เป็นหลักฐาน
+                          </p>
+                        </div>
+                      )}
                     </>
                   ) : (
-                    <p className="text-sm text-ink/60">
-                      คนหิ้วยังไม่ได้ตั้งค่าพร้อมเพย์ กรุณาเลือก &quot;จ่ายตอนรับของ&quot; แทนไปก่อน
-                    </p>
+                    <div className="rounded-xl bg-cream p-4 text-center">
+                      <p className="text-sm text-ink/60">
+                        คนหิ้วยังไม่ได้ตั้งค่าพร้อมเพย์หรือบัญชีธนาคาร กรุณาเลือก &quot;จ่ายตอนรับของ&quot; แทนไปก่อน
+                      </p>
+                    </div>
                   )}
                 </div>
               )}
