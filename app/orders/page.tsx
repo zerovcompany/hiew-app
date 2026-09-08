@@ -228,6 +228,11 @@ function OrdersHubInner() {
                               </span>
                             )}
                           </p>
+                          {o.created_at && (
+                            <p className="mt-0.5 text-[11px] text-ink/40">
+                              สั่งเมื่อ {new Date(o.created_at).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} น.
+                            </p>
+                          )}
                         </div>
                         {nextStatus[o.status] ? (
                           <button

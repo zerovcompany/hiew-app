@@ -278,6 +278,14 @@ export default function OrderDetailPage() {
             {new Date(trip.delivery_date).toLocaleDateString("th-TH", { day: "numeric", month: "long" })}
             {" "}เวลา {trip.delivery_time_start.slice(0, 5)}-{trip.delivery_time_end.slice(0, 5)} น.
           </dd>
+          {order.created_at && (
+            <>
+              <dt className="text-ink/50">สั่งเมื่อ</dt>
+              <dd className="text-right font-medium">
+                {new Date(order.created_at).toLocaleString("th-TH", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })} น.
+              </dd>
+            </>
+          )}
         </dl>
         {order.buyer_note && (
           <p className="mt-3 border-t border-dashed border-ink/15 pt-3 text-sm text-ink/70">

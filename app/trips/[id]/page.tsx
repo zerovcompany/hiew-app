@@ -357,6 +357,11 @@ export default function TripDetailPage() {
                       <p className="font-medium text-ink">{o.profiles?.display_name ?? "ผู้ซื้อ"}</p>
                       <p className="mt-0.5 text-sm text-ink/70">{o.item_description} × {o.quantity}</p>
                       {o.buyer_note && <p className="mt-0.5 text-xs text-ink/45">{o.buyer_note}</p>}
+                      {o.created_at && (
+                        <p className="mt-1 text-xs text-ink/40">
+                          สั่งเมื่อ {new Date(o.created_at).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} น.
+                        </p>
+                      )}
                     </div>
                     <StatusBadge status={o.status} />
                   </div>
