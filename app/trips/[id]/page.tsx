@@ -85,8 +85,6 @@ export default function TripDetailPage() {
         setSellOrdersLoading(true);
         const { data: orders } = await supabase
           .from("orders")
-      // DEBUG
-      
           .select("*, profiles(display_name, phone)")
           .eq("trip_id", id)
           .order("created_at", { ascending: false });
@@ -134,8 +132,6 @@ export default function TripDetailPage() {
     }
     const { error: updateErr } = await supabase
       .from("orders")
-      // DEBUG
-      
       .update({ payment_slip_url: path })
       .eq("id", createdOrderId);
     setSlipUploading(false);
@@ -197,32 +193,35 @@ export default function TripDetailPage() {
     }
 
     setSubmitting(true);
-    const { data: newOrder, error } = await supabase
-      .from("orders")
-      // DEBUG
-      
-      .insert({
-        trip_id: trip.id,
-        buyer_id: user.id,
-        menu_item_id: selectedMenuId === "custom" ? null : selectedMenuId,
-        item_description: itemDescription.trim(),
-        quantity,
-        item_price: itemPrice ? Number(itemPrice) : null,
-        service_fee_snapshot: trip.service_fee,
-        buyer_note: buyerNote.trim() || null,
-        payment_method: paymentMethod,
-        delivery_name: selectedAddress.recipient_name,
-        delivery_phone: selectedAddress.phone,
-        delivery_address: selectedAddress.address_text,
-        delivery_province: selectedAddress.province,
-        delivery_district: selectedAddress.district,
-        delivery_subdistrict: selectedAddress.subdistrict,
-        delivery_postal_code: selectedAddress.postal_code,
-        delivery_latitude: selectedAddress.latitude,
-        delivery_longitude: selectedAddress.longitude,
-      })
-      .select()
-      .single();
+    
+// 🔥 FIX: fetch carrier_id from carrier_trips ก่อน
+const { data: tripData, error: tripError } = await supabase
+  .from("carrier_trips")
+  .select("carrier_id")
+  .eq("id", trip.id)
+  .single();
+
+if (tripError || !tripData) {
+  console.error("trip error:", tripError);
+  alert("โหลด trip ไม่ได้ ❌");
+  return;
+}
+
+const { data: newOrder, error } = await supabase
+  .from("orders")
+  .insert({
+    trip_id: trip.id,
+    buyer_id: user.id,
+    carrier_id: tripData.carrier_id,
+    item_description: itemDescription,
+    quantity,
+  })
+  .select()
+  .single();
+
+console.log("ORDER RESULT:", newOrder);
+console.log("ORDER ERROR:", error);
+
     setSubmitting(false);
 
     if (error || !newOrder) {
