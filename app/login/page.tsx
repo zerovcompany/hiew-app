@@ -18,20 +18,10 @@ function LoginContent() {
 
   const handleLineLogin = () => {
     setRedirecting(true);
-    const state = crypto.randomUUID();
-    // เก็บ state ไว้เทียบตอน callback (server อ่านจาก cookie นี้เพื่อกัน CSRF)
-    document.cookie = `line_oauth_state=${state}; path=/; max-age=600; samesite=lax`;
-
-    const params = new URLSearchParams({
-      response_type: "code",
-      client_id: process.env.NEXT_PUBLIC_LINE_CHANNEL_ID!,
-      redirect_uri: `${window.location.origin}/api/auth/line/callback`,
-      state,
-      scope: "openid profile",
-      bot_prompt: "normal",
-    });
-
-    window.location.href = `https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`;
+    // ให้ server เป็นคนสร้าง state และตั้งคุกกี้ผ่าน Set-Cookie header (แทนการตั้งด้วย
+    // document.cookie ฝั่ง client) เพื่อให้คุกกี้ไม่โดนเบราว์เซอร์ที่มี tracking prevention
+    // เข้มงวด (Incognito, เบราว์เซอร์ที่ไม่ใช่ตัวหลัก ฯลฯ) เคลียร์ทิ้งก่อนเด้งกลับมาจาก LINE
+    window.location.href = "/api/auth/line/login";
   };
 
   return (
