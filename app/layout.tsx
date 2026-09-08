@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import BottomNav from "@/components/BottomNav";
@@ -8,6 +8,25 @@ import { ToastProvider } from "@/lib/toast";
 export const metadata: Metadata = {
   title: "หิ้วชัยภูมิ — แอปรับหิ้วของสำหรับคนชัยภูมิ",
   description: "หาคนหิ้วของ หรือเปิดรับหิ้วของในชัยภูมิ ง่าย ไว ใจได้",
+  manifest: "/site.webmanifest",
+  appleWebApp: {
+    // เพิ่มเข้าโฮมสกรีนแล้วเปิดแบบเต็มจอเหมือนแอปจริง ไม่มีแถบ URL ของ Safari
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "หิ้วชัยภูมิ",
+  },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#2B4570",
 };
 
 export default function RootLayout({
