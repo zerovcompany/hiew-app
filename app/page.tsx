@@ -42,19 +42,22 @@ export default function HomePage() {
       .then(({ data }) => setBanners((data as PromoBanner[]) ?? []));
   }, []);
 
-  // โหลดเที่ยวหิ้ววันนี้แบบขี้เกียจ (lazy) — ดึงครั้งแรกที่ผู้ใช้กดแท็บนี้เท่านั้น ไม่ต้องรอตอนเปิดหน้าแรก
+  // โหลดเที่ยวหิ้วที่ "สร้าง/ลงประกาศวันนี้" แบบขี้เกียจ (lazy) — ยึดจาก created_at ไม่ใช่วันที่ส่งของ (delivery_date)
+  // ดึงครั้งแรกที่ผู้ใช้กดแท็บนี้เท่านั้น ไม่ต้องรอตอนเปิดหน้าแรก
   useEffect(() => {
     if (activeTab !== "trips" || todayTripsLoaded) return;
     const load = async () => {
       setTodayTripsLoading(true);
-      const todayStr = new Date().toLocaleDateString("sv-SE"); // YYYY-MM-DD ตามเวลาเครื่อง
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
       const { data, error } = await supabase
         .from("carrier_trips")
         .select("*, profiles(display_name, rating_avg), shops(name)")
         .eq("status", "open")
-        .eq("delivery_date", todayStr)
-        .gte("order_cutoff_at", new Date().toISOString())
-        .order("order_cutoff_at", { ascending: true });
+        .gte("created_at", startOfDay.toISOString())
+        .lte("created_at", endOfDay.toISOString())
+        .order("created_at", { ascending: false });
       if (!error && data) setTodayTrips(data as unknown as CarrierTrip[]);
       setTodayTripsLoading(false);
       setTodayTripsLoaded(true);
@@ -159,7 +162,7 @@ export default function HomePage() {
             ร้านค้า
           </button>
           <button className="chip" data-active={activeTab === "trips"} onClick={() => setActiveTab("trips")}>
-            เที่ยวหิ้ววันนี้{todayTripsLoaded && todayTrips.length > 0 ? ` (${todayTrips.length})` : ""}
+            รับหิ้ววันนี้{todayTripsLoaded && todayTrips.length > 0 ? ` (${todayTrips.length})` : ""}
           </button>
         </div>
 
@@ -207,7 +210,7 @@ export default function HomePage() {
         ) : (
           <section className="mt-6">
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-xl text-ink">เที่ยวหิ้วที่เปิดรับวันนี้</h2>
+              <h2 className="font-display text-xl text-ink">เที่ยวหิ้วที่เพิ่งลงประกาศวันนี้</h2>
               <Link href="/trips" className="text-sm text-krachiao underline">
                 ดูเที่ยวหิ้วทั้งหมด
               </Link>

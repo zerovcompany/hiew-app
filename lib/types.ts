@@ -73,6 +73,7 @@ export type CarrierTrip = {
   max_orders: number | null;
   status: TripStatus;
   cover_image_url: string | null;
+  created_at?: string;
   profiles?: Profile;
   shops?: Shop;
 };
