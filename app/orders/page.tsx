@@ -184,17 +184,7 @@ function OrdersHubInner() {
         )
       ) : sellLoading ? (
         <SkeletonList count={2} />
-      ) : !profile?.is_carrier ? (
-        <EmptyState
-          title="โหมดคนหิ้วยังไม่เปิดใช้งาน — เปิดในโปรไฟล์เพื่อเริ่มรับหิ้ว"
-          action={<Link href="/profile" className="btn-primary text-sm">ไปที่โปรไฟล์</Link>}
-        />
-      ) : trips.length === 0 ? (
-        <EmptyState
-          title="ยังไม่เคยเปิดรับหิ้ว"
-          action={<Link href="/trips/new" className="btn-primary text-sm">เปิดรับหิ้ว</Link>}
-        />
-      ) : (
+      ) : trips.length > 0 ? (
         <div className="mt-4 space-y-6">
           <div className="flex justify-end">
             <Link href="/trips/new" className="flex items-center gap-1 text-sm text-krachiao">
@@ -261,6 +251,16 @@ function OrdersHubInner() {
             </div>
           ))}
         </div>
+      ) : !profile?.is_carrier ? (
+        <EmptyState
+          title="โหมดคนหิ้วยังไม่เปิดใช้งาน — เปิดในโปรไฟล์เพื่อเริ่มรับหิ้ว"
+          action={<Link href="/profile" className="btn-primary text-sm">ไปที่โปรไฟล์</Link>}
+        />
+      ) : (
+        <EmptyState
+          title="ยังไม่เคยเปิดรับหิ้ว"
+          action={<Link href="/trips/new" className="btn-primary text-sm">เปิดรับหิ้ว</Link>}
+        />
       )}
     </main>
   );
