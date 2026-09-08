@@ -36,7 +36,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="th">
-      <body className="min-h-screen font-body pb-safe-nav sm:pb-0">
+      <body className="min-h-screen font-body">
         <UserProvider>
           <ToastProvider>
             <Nav />
