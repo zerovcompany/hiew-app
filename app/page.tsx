@@ -81,19 +81,19 @@ export default function HomePage() {
       {/* Hero — ลายผ้ามัดหมี่บาง ๆ อ้างอิงอัตลักษณ์ชัยภูมิ */}
       <section className="ikat-band">
         <div className="mx-auto max-w-5xl px-4 pb-8 pt-10 sm:pb-10 sm:pt-14">
-          {banners.length > 0 ? (
-            <div className="mb-6">
+          {/* คอนเซ็ปหลักของแอป — โชว์เสมอ ไม่ว่าจะมีแบนเนอร์โฆษณาหรือไม่ */}
+          <h1 className="max-w-lg font-display text-3xl font-semibold leading-tight text-white sm:text-4xl">
+            อยากได้อะไร ให้คนชัยภูมิหิ้วมาให้
+          </h1>
+          <p className="mt-2 max-w-md text-white/75">
+            ค้นหาร้านที่ต้องการ แล้วเลือกคนหิ้วที่ไปร้านนั้นได้เลย หรือเปิดรับหิ้วเองก็ทำได้
+          </p>
+
+          {/* แบนเนอร์โฆษณาที่แอดมินอัปโหลด — โชว์แยกต่างหาก ไม่ทับข้อความคอนเซ็ปด้านบน */}
+          {banners.length > 0 && (
+            <div className="mt-5">
               <BannerCarousel banners={banners} />
             </div>
-          ) : (
-            <>
-              <h1 className="max-w-lg font-display text-3xl font-semibold leading-tight text-white sm:text-4xl">
-                อยากได้อะไร ให้คนชัยภูมิหิ้วมาให้
-              </h1>
-              <p className="mt-2 max-w-md text-white/75">
-                ค้นหาร้านที่ต้องการ แล้วเลือกคนหิ้วที่ไปร้านนั้นได้เลย หรือเปิดรับหิ้วเองก็ทำได้
-              </p>
-            </>
           )}
 
           <div className="mt-6 flex items-center gap-2 rounded-2xl bg-paper p-2 shadow-lifted">
