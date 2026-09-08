@@ -49,13 +49,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       type: "website",
       url: `/trips/${params.id}`,
-      images: [{ url: t.cover_image_url || "/og-default.png", width: 1200, height: 630, alt: t.shop_name_text }],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [t.cover_image_url || "/og-default.png"],
     },
   };
 }
