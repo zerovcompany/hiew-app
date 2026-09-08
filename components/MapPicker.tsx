@@ -38,7 +38,16 @@ export default function MapPicker({ lat, lng, onChange }: Props) {
   }, [ready]); // initialize once
 
   useEffect(() => {
-    if (!mapInstance.current || !window.L || lat == null || lng == null) return;
+    if (!mapInstance.current || !window.L) return;
+    if (lat == null || lng == null) {
+      // พิกัดถูกล้าง (เช่น หลังบันทึกที่อยู่สำเร็จ) — เอาหมุดเดิมออกด้วย ไม่งั้นแผนที่จะโชว์หมุดค้างไว้
+      // ทั้งที่จริง ๆ ยังไม่มีพิกัดอยู่ในฟอร์ม ทำให้ผู้ใช้เข้าใจผิดว่าเลือกตำแหน่งไว้แล้ว
+      if (markerRef.current) {
+        mapInstance.current.removeLayer(markerRef.current);
+        markerRef.current = null;
+      }
+      return;
+    }
     if (markerRef.current) markerRef.current.setLatLng([lat, lng]);
     else markerRef.current = window.L.marker([lat, lng]).addTo(mapInstance.current);
     mapInstance.current.setView([lat, lng], Math.max(mapInstance.current.getZoom(), 16));

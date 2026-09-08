@@ -146,7 +146,14 @@ export default function ProfilePage() {
 
   const handleSaveAddress = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile || !recipientName.trim() || !addressPhone.trim() || !addressText.trim() || addressLat == null || addressLng == null) return;
+    if (!profile) return;
+
+    // ตรวจทีละเงื่อนไข แล้วบอกให้ชัดว่าขาดอะไร แทนที่จะปล่อยให้ปุ่มกดไม่ติดเฉย ๆ โดยไม่มีคำอธิบาย
+    if (!recipientName.trim()) return showToast("กรุณากรอกชื่อผู้รับ", "error");
+    if (!addressPhone.trim()) return showToast("กรุณากรอกเบอร์โทรผู้รับ", "error");
+    if (!addressText.trim()) return showToast("กรุณากรอกที่อยู่ / จุดสังเกต", "error");
+    if (addressLat == null || addressLng == null) return showToast("กรุณาแตะปักหมุดตำแหน่งบนแผนที่ก่อนบันทึก", "error");
+
     setSavingAddress(true);
     const { data, error } = await supabase.from("buyer_addresses").insert({ profile_id: profile.id, label: addressLabel.trim() || "บ้าน", recipient_name: recipientName.trim(), phone: addressPhone.replace(/\D/g, ""), address_text: addressText.trim(), latitude: addressLat, longitude: addressLng, is_default: addresses.length === 0 }).select().single();
     setSavingAddress(false);
@@ -320,7 +327,7 @@ export default function ProfilePage() {
           <input value={addressPhone} onChange={(e)=>setAddressPhone(e.target.value)} className="field" placeholder="เบอร์โทรผู้รับ" inputMode="tel" />
           <textarea value={addressText} onChange={(e)=>setAddressText(e.target.value)} rows={2} className="field" placeholder="บ้านเลขที่ / ถนน / จุดสังเกต" />
           <MapPicker lat={addressLat} lng={addressLng} onChange={(lat,lng)=>{setAddressLat(lat);setAddressLng(lng)}} />
-          <button className="btn-secondary w-full" disabled={savingAddress || addressLat == null || addressLng == null}>{savingAddress ? "กำลังบันทึก..." : "+ บันทึกที่อยู่นี้"}</button>
+          <button className="btn-secondary w-full" disabled={savingAddress}>{savingAddress ? "กำลังบันทึก..." : "+ บันทึกที่อยู่นี้"}</button>
         </form>
       </section>
 
