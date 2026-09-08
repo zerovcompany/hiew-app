@@ -214,15 +214,9 @@ export default function TripDetailPage() {
         delivery_postal_code: selectedAddress.postal_code,
         delivery_latitude: selectedAddress.latitude,
         delivery_longitude: selectedAddress.longitude,
-        carrier_id: trip.user_id,
       })
       .select()
-      
       .single();
-
-    console.log("ORDER RESULT:", newOrder);
-    console.log("ORDER ERROR:", error);
-
     setSubmitting(false);
 
     if (error || !newOrder) {
