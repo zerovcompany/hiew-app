@@ -336,6 +336,9 @@ export default function ProfilePage() {
         <Link href="/admin/shops" className="focus-ring mt-2 flex items-center gap-3 rounded-xl border border-ink/10 px-4 py-3 text-sm font-medium text-ink hover:bg-ink/5">
           🏪 จัดการร้านค้าและรูปภาพ (แอดมิน)
         </Link>
+        <Link href="/admin/banners" className="focus-ring mt-2 flex items-center gap-3 rounded-xl border border-ink/10 px-4 py-3 text-sm font-medium text-ink hover:bg-ink/5">
+          🖼️ จัดการแบนเนอร์โฆษณาหน้าแรก (แอดมิน)
+        </Link>
         </>
       )}
 

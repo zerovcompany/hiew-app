@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
-import type { Shop } from "@/lib/types";
+import type { Shop, PromoBanner } from "@/lib/types";
 import ShopCard from "@/components/ShopCard";
 import EmptyState from "@/components/EmptyState";
 import { SkeletonGrid } from "@/components/Skeleton";
 import { IconSearch, IconRoute, IconPlus } from "@/components/Icons";
+import BannerCarousel from "@/components/BannerCarousel";
 
 // ถ้าร้านในระบบยังมีไม่เยอะ ให้โชว์ "ร้านทั้งหมด" ก่อน (เรียงร้านใหม่สุดก่อน)
 // พอร้านเริ่มเยอะเกินเกณฑ์นี้ ค่อยสลับไปเรียงตาม "ยอดนิยม" (order_count) แทน
@@ -19,6 +20,18 @@ export default function HomePage() {
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(true);
   const [showingAll, setShowingAll] = useState(true);
+  const [banners, setBanners] = useState<PromoBanner[]>([]);
+
+  // ป้ายโฆษณา/แบนเนอร์ที่แอดมินอัปโหลดไว้ — ดึงแยกจาก shops เพราะไม่ต้องรอ query ร้าน
+  useEffect(() => {
+    supabase
+      .from("promo_banners")
+      .select("*")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .then(({ data }) => setBanners((data as PromoBanner[]) ?? []));
+  }, []);
+
 
   useEffect(() => {
     const timer = setTimeout(async () => {
@@ -68,12 +81,20 @@ export default function HomePage() {
       {/* Hero — ลายผ้ามัดหมี่บาง ๆ อ้างอิงอัตลักษณ์ชัยภูมิ */}
       <section className="ikat-band">
         <div className="mx-auto max-w-5xl px-4 pb-8 pt-10 sm:pb-10 sm:pt-14">
-          <h1 className="max-w-lg font-display text-3xl font-semibold leading-tight text-white sm:text-4xl">
-            อยากได้อะไร ให้คนชัยภูมิหิ้วมาให้
-          </h1>
-          <p className="mt-2 max-w-md text-white/75">
-            ค้นหาร้านที่ต้องการ แล้วเลือกคนหิ้วที่ไปร้านนั้นได้เลย หรือเปิดรับหิ้วเองก็ทำได้
-          </p>
+          {banners.length > 0 ? (
+            <div className="mb-6">
+              <BannerCarousel banners={banners} />
+            </div>
+          ) : (
+            <>
+              <h1 className="max-w-lg font-display text-3xl font-semibold leading-tight text-white sm:text-4xl">
+                อยากได้อะไร ให้คนชัยภูมิหิ้วมาให้
+              </h1>
+              <p className="mt-2 max-w-md text-white/75">
+                ค้นหาร้านที่ต้องการ แล้วเลือกคนหิ้วที่ไปร้านนั้นได้เลย หรือเปิดรับหิ้วเองก็ทำได้
+              </p>
+            </>
+          )}
 
           <div className="mt-6 flex items-center gap-2 rounded-2xl bg-paper p-2 shadow-lifted">
             <IconSearch className="ml-2 h-5 w-5 shrink-0 text-ink/40" />

@@ -43,6 +43,15 @@ export type Shop = {
   created_at?: string;
 };
 
+export type PromoBanner = {
+  id: string;
+  image_url: string;
+  link_url: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at?: string;
+};
+
 export type TripStatus = "open" | "closed" | "completed" | "cancelled";
 
 export type CarrierTrip = {
