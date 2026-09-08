@@ -86,7 +86,7 @@ export default function TripDetailPage() {
         setSellOrdersLoading(true);
         const { data: orders, error: sellOrdersError } = await supabase
           .from("orders")
-          .select("*, profiles(display_name, phone)")
+          .select("*, profiles!orders_buyer_id_fkey(display_name, phone)")
           .eq("trip_id", id)
           .order("created_at", { ascending: false });
         if (sellOrdersError) {

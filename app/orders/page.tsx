@@ -91,7 +91,7 @@ function OrdersHubInner() {
         tripList.map(async (t) => {
           const { data, error: sellOrdersError } = await supabase
             .from("orders")
-            .select("*, profiles(display_name)")
+            .select("*, profiles!orders_buyer_id_fkey(display_name)")
             .eq("trip_id", t.id)
             .order("created_at");
           if (sellOrdersError) console.error(`[hiew] orders for trip ${t.id} error:`, sellOrdersError);
@@ -115,7 +115,7 @@ function OrdersHubInner() {
     await supabase.from("orders").update({ status: next }).eq("id", order.id);
     const { data } = await supabase
       .from("orders")
-      .select("*, profiles(display_name)")
+      .select("*, profiles!orders_buyer_id_fkey(display_name)")
       .eq("trip_id", order.trip_id)
       .order("created_at");
     setOrdersByTrip((prev) => ({ ...prev, [order.trip_id]: (data as unknown as SellOrderRow[]) ?? [] }));
