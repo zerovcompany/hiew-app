@@ -193,41 +193,45 @@ export default function TripDetailPage() {
     }
 
     setSubmitting(true);
-    
-// 🔥 FINAL FIX: ดึง carrier + fee ก่อนแล้วค่อยสร้าง order
-const { data: tripData, error: tripError } = await supabase
-  .from("carrier_trips")
-  .select("carrier_id, service_fee")
-  .eq("id", trip.id)
-  .single();
 
-if (tripError || !tripData) {
-  console.error("trip error:", tripError);
-  alert("โหลดข้อมูลทริปไม่สำเร็จ ❌");
-  return;
-}
+    // ดึง carrier + fee ก่อนแล้วค่อยสร้าง order
+    const { data: tripData, error: tripError } = await supabase
+      .from("carrier_trips")
+      .select("carrier_id, service_fee")
+      .eq("id", trip.id)
+      .single();
 
-const { data: newOrder, error } = await supabase
-  .from("orders")
-  .insert({
-    trip_id: trip.id,
-    buyer_id: user.id,
-    carrier_id: tripData.carrier_id,
-    service_fee_snapshot: tripData.service_fee,
-    item_description: itemDescription,
-    quantity,
-  })
-  .select()
-  .single();
+    if (tripError || !tripData) {
+      console.error("trip error:", tripError);
+      setFormError("โหลดข้อมูลทริปไม่สำเร็จ ลองใหม่อีกครั้ง");
+      setSubmitting(false);
+      return;
+    }
 
-console.log("ORDER RESULT:", newOrder);
-console.log("ORDER ERROR:", error);
-
-if (error) {
-  alert("สร้างออเดอร์ไม่สำเร็จ ❌");
-} else {
-  alert("สั่งออเดอร์เรียบร้อยแล้ว ✅");
-}
+    const { data: newOrder, error } = await supabase
+      .from("orders")
+      .insert({
+        trip_id: trip.id,
+        buyer_id: user.id,
+        carrier_id: tripData.carrier_id,
+        service_fee_snapshot: tripData.service_fee,
+        item_description: itemDescription,
+        quantity,
+        item_price: itemPrice ? Number(itemPrice) : null,
+        buyer_note: buyerNote.trim() ? buyerNote.trim() : null,
+        payment_method: paymentMethod,
+        delivery_name: selectedAddress.recipient_name,
+        delivery_phone: selectedAddress.phone,
+        delivery_address: selectedAddress.address_text,
+        delivery_province: selectedAddress.province,
+        delivery_district: selectedAddress.district,
+        delivery_subdistrict: selectedAddress.subdistrict,
+        delivery_postal_code: selectedAddress.postal_code,
+        delivery_latitude: selectedAddress.latitude,
+        delivery_longitude: selectedAddress.longitude,
+      })
+      .select()
+      .single();
 
     setSubmitting(false);
 
