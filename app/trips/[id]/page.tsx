@@ -85,6 +85,8 @@ export default function TripDetailPage() {
         setSellOrdersLoading(true);
         const { data: orders } = await supabase
           .from("orders")
+      // DEBUG
+      
           .select("*, profiles(display_name, phone)")
           .eq("trip_id", id)
           .order("created_at", { ascending: false });
@@ -132,6 +134,8 @@ export default function TripDetailPage() {
     }
     const { error: updateErr } = await supabase
       .from("orders")
+      // DEBUG
+      
       .update({ payment_slip_url: path })
       .eq("id", createdOrderId);
     setSlipUploading(false);
@@ -195,6 +199,8 @@ export default function TripDetailPage() {
     setSubmitting(true);
     const { data: newOrder, error } = await supabase
       .from("orders")
+      // DEBUG
+      
       .insert({
         trip_id: trip.id,
         buyer_id: user.id,

@@ -15,6 +15,8 @@ export async function notifyOrderEvent(orderId: string, event: OrderNotification
 
   const { data: order, error } = await supabaseAdmin
     .from("orders")
+      // DEBUG
+      
     .select("id, buyer_id, item_description, status, trip_id, carrier_trips(shop_name_text, carrier_id)")
     .eq("id", orderId)
     .maybeSingle();

@@ -69,7 +69,9 @@ export default function OrderDetailPage() {
         return;
       }
 
-      const { data: orderData } = await supabase.from("orders").select("*").eq("id", id).maybeSingle();
+      const { data: orderData } = await supabase.from("orders")
+      // DEBUG
+      .select("*").eq("id", id).maybeSingle();
       if (!orderData) {
         setNotFound(true);
         setLoading(false);
@@ -130,6 +132,8 @@ export default function OrderDetailPage() {
     }
     const { error: updateErr } = await supabase
       .from("orders")
+      // DEBUG
+      
       .update({ payment_slip_url: path })
       .eq("id", order.id);
     setSlipUploading(false);
@@ -148,7 +152,9 @@ export default function OrderDetailPage() {
     const next = nextStatus[order.status];
     if (!next) return;
     setAdvancing(true);
-    const { error } = await supabase.from("orders").update({ status: next }).eq("id", order.id);
+    const { error } = await supabase.from("orders")
+      // DEBUG
+      .update({ status: next }).eq("id", order.id);
     setAdvancing(false);
     if (!error) {
       setOrder({ ...order, status: next });

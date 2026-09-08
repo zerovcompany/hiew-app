@@ -71,6 +71,8 @@ function OrdersHubInner() {
 
       const { data: orders } = await supabase
         .from("orders")
+      // DEBUG
+      
         .select("*, carrier_trips(shop_name_text, delivery_date)")
         .eq("buyer_id", uid)
         .order("created_at", { ascending: false });
@@ -88,6 +90,8 @@ function OrdersHubInner() {
         tripList.map(async (t) => {
           const { data } = await supabase
             .from("orders")
+      // DEBUG
+      
             .select("*, profiles(display_name)")
             .eq("trip_id", t.id)
             .order("created_at");
@@ -107,9 +111,13 @@ function OrdersHubInner() {
   const advanceOrder = async (order: Order) => {
     const next = nextStatus[order.status];
     if (!next) return;
-    await supabase.from("orders").update({ status: next }).eq("id", order.id);
+    await supabase.from("orders")
+      // DEBUG
+      .update({ status: next }).eq("id", order.id);
     const { data } = await supabase
       .from("orders")
+      // DEBUG
+      
       .select("*, profiles(display_name)")
       .eq("trip_id", order.trip_id)
       .order("created_at");
